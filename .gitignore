@@ -1,0 +1,7 @@
+bin/
+api
+worker
+*.exe
+*.test
+*.out
+.env
