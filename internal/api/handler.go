@@ -122,15 +122,17 @@ func (s *Server) handleListTestRuns(c echo.Context) error {
 
 	if v := c.QueryParam("limit"); v != "" {
 		parsed, err := strconv.Atoi(v)
-		if err == nil && parsed > 0 && parsed <= 100 {
-			limit = parsed
+		if err != nil || parsed < 1 || parsed > 100 {
+			return c.JSON(http.StatusBadRequest, ErrorResponse{Error: "invalid limit parameter"})
 		}
+		limit = parsed
 	}
 	if v := c.QueryParam("offset"); v != "" {
 		parsed, err := strconv.Atoi(v)
-		if err == nil && parsed >= 0 {
-			offset = parsed
+		if err != nil || parsed < 0 {
+			return c.JSON(http.StatusBadRequest, ErrorResponse{Error: "invalid offset parameter"})
 		}
+		offset = parsed
 	}
 
 	ctx := c.Request().Context()

@@ -17,6 +17,10 @@ func NewRedisConnOpt(cfg config.RedisConfig) (asynq.RedisConnOpt, error) {
 		return opt, nil
 	}
 
+	if cfg.Host == "" {
+		return nil, fmt.Errorf("redis configuration requires either URI or Host to be set")
+	}
+
 	return asynq.RedisClientOpt{
 		Addr:     cfg.Host + ":" + cfg.Port,
 		Username: cfg.User,

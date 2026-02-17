@@ -40,7 +40,9 @@ func TestRunFromQuery(q *queries.TestRun) TestRun {
 		RequestedBy: q.RequestedBy,
 	}
 
-	copy(r.ID[:], q.ID.Bytes[:])
+	if q.ID.Valid {
+		copy(r.ID[:], q.ID.Bytes[:])
+	}
 
 	if q.ProposalID.Valid {
 		r.ProposalID = &q.ProposalID.String
