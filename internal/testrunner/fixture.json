@@ -1,0 +1,20 @@
+{
+  "vault": {
+    "public_key": "0279be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798",
+    "name": "integration-test-vault",
+    "created_at": "2025-12-22T00:00:00Z",
+    "vault_b64": "CAEStANVeks5NXNMb1k0OWxyTjdzUHprekRQQndtdEx3UktWelFUajFsc3BUbTI3VVM3OG9lS3ZKR0djRmQ1RGViZVlYbzRpR3M3d2dXRFBnaEYySms4NWZ4bW9GZTU4ZWp6UjV5S1BVcnFZM0h5di9ydVN4SE5tVENmT2NLbElMVFBodGVpckFOaTZBMFFNeTYrakFqL3JrY0FQTFZ3cmFTS1h6VG84ZUxoTHE0aXZKQWM3Mkt1Yld1Rmw1YjFMUndaUURVOVQxK1A0YnVWT3NGNGNTK1pBaWZhQWppOG9UbHFxR2Vwb1NyQUdabGJOa2FWWFYrbFJmclY5STZjaFlsaHZ4c0RvR0NxdUZabTZiUEw4NVo0QWN0U1A0N0I2SVFOK0RFYlAvaWF4dVZXY1hqMkxJV2hiUnZZQTJ6OHRCWjhyRWF4U3BqWk1DK1pyd0dXbGxrd3I4WWFkLy9RRVF4WFQ1UWFxb0FmVjZMcmphT096dUhwck4yRmJJbjdWRWozdlFYOWZsSmZTVXBMZ3hwdHdUcmQxWXV6cHlMVXVRZ25ReXRhTlRyZEt3c0t4WXNDdzRNdz09GAE="
+  },
+  "reshare": {
+    "session_id": "00000000-0000-0000-0000-000000000000",
+    "hex_encryption_key": "0000000000000000000000000000000000000000000000000000000000000000",
+    "hex_chain_code": "0000000000000000000000000000000000000000000000000000000000000000",
+    "local_party_id": "verifier-test-party",
+    "old_parties": [
+      "party1",
+      "party2"
+    ],
+    "old_reshare_prefix": "integration-test",
+    "email": "integration@test.example.com"
+  }
+}

@@ -25,6 +25,11 @@ UPDATE test_runs
 SET status = $2, artifact_prefix = $3, error_message = $4, finished_at = NOW(), updated_at = NOW()
 WHERE id = $1;
 
+-- name: MarkStaleRunAsError :exec
+UPDATE test_runs
+SET status = 'ERROR', error_message = $2, finished_at = NOW(), updated_at = NOW()
+WHERE id = $1 AND status = 'RUNNING';
+
 -- name: GetStaleRunningRuns :many
 SELECT * FROM test_runs
 WHERE status = 'RUNNING' AND started_at < NOW() - $1::interval;

@@ -1,7 +1,5 @@
 -- +goose Up
 -- +goose StatementBegin
-CREATE EXTENSION IF NOT EXISTS pgcrypto;
-
 CREATE TYPE test_run_status AS ENUM ('QUEUED','RUNNING','PASSED','FAILED','ERROR');
 
 CREATE TABLE test_runs (

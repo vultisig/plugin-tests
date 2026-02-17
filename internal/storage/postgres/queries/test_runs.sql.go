@@ -169,6 +169,22 @@ func (q *Queries) ListTestRuns(ctx context.Context, arg *ListTestRunsParams) ([]
 	return items, nil
 }
 
+const markStaleRunAsError = `-- name: MarkStaleRunAsError :exec
+UPDATE test_runs
+SET status = 'ERROR', error_message = $2, finished_at = NOW(), updated_at = NOW()
+WHERE id = $1 AND status = 'RUNNING'
+`
+
+type MarkStaleRunAsErrorParams struct {
+	ID           pgtype.UUID `json:"id"`
+	ErrorMessage pgtype.Text `json:"error_message"`
+}
+
+func (q *Queries) MarkStaleRunAsError(ctx context.Context, arg *MarkStaleRunAsErrorParams) error {
+	_, err := q.db.Exec(ctx, markStaleRunAsError, arg.ID, arg.ErrorMessage)
+	return err
+}
+
 const updateTestRunFinished = `-- name: UpdateTestRunFinished :exec
 UPDATE test_runs
 SET status = $2, artifact_prefix = $3, error_message = $4, finished_at = NOW(), updated_at = NOW()
