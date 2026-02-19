@@ -9,11 +9,18 @@ WHERE id = $1;
 
 -- name: ListTestRuns :many
 SELECT * FROM test_runs
+WHERE (sqlc.narg('plugin_id')::text IS NULL OR plugin_id = sqlc.narg('plugin_id'))
+  AND (sqlc.narg('status')::test_run_status IS NULL OR status = sqlc.narg('status'))
 ORDER BY created_at DESC
-LIMIT $1 OFFSET $2;
+LIMIT sqlc.arg('query_limit') OFFSET sqlc.arg('query_offset');
 
 -- name: CountTestRuns :one
-SELECT COUNT(*)::bigint FROM test_runs;
+SELECT COUNT(*)::bigint FROM test_runs
+WHERE (sqlc.narg('plugin_id')::text IS NULL OR plugin_id = sqlc.narg('plugin_id'))
+  AND (sqlc.narg('status')::test_run_status IS NULL OR status = sqlc.narg('status'));
+
+-- name: GetDistinctPluginIDs :many
+SELECT DISTINCT plugin_id FROM test_runs ORDER BY plugin_id;
 
 -- name: UpdateTestRunStarted :exec
 UPDATE test_runs

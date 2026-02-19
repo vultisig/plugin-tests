@@ -3,6 +3,8 @@ package worker
 import (
 	"context"
 	"fmt"
+	"net/url"
+	"strconv"
 	"time"
 
 	"github.com/sirupsen/logrus"
@@ -96,7 +98,29 @@ func (r *Runner) Run(ctx context.Context, namespace, runID, pluginID string, lab
 
 func (r *Runner) deployNetworkPolicy(ctx context.Context, ns string) error {
 	r.logger.Info("creating network policy")
-	return createIntraNamespaceNetworkPolicy(ctx, r.k8s, ns)
+	pluginPort := parsePort(r.cfg.PluginEndpoint)
+	return createIntraNamespaceNetworkPolicy(ctx, r.k8s, ns, pluginPort)
+}
+
+func parsePort(rawURL string) int32 {
+	if rawURL == "" {
+		return 0
+	}
+	u, err := url.Parse(rawURL)
+	if err != nil {
+		return 0
+	}
+	if u.Port() != "" {
+		p, err := strconv.Atoi(u.Port())
+		if err != nil {
+			return 0
+		}
+		return int32(p)
+	}
+	if u.Scheme == "https" {
+		return 443
+	}
+	return 80
 }
 
 func (r *Runner) deployInfra(ctx context.Context, ns string, labels map[string]string) error {
@@ -175,7 +199,8 @@ func (r *Runner) deployConfigMaps(ctx context.Context, ns string) error {
 }
 
 func (r *Runner) deployVerifier(ctx context.Context, ns string, labels map[string]string) error {
-	vDep, vSvc := verifierDeploymentObjects(ns, r.cfg.VerifierImage, r.cfg.ImagePullSecret, labels)
+	hostAliases := parseHostAliases(r.cfg.HostAliases)
+	vDep, vSvc := verifierDeploymentObjects(ns, r.cfg.VerifierImage, r.cfg.ImagePullSecret, labels, hostAliases)
 	err := applyDeployment(ctx, r.k8s, vDep)
 	if err != nil {
 		return fmt.Errorf("deploy verifier: %w", err)
@@ -209,7 +234,8 @@ func (r *Runner) waitForVerifier(ctx context.Context, ns string) error {
 func (r *Runner) runSeederJob(ctx context.Context, ns, runID string, labels map[string]string) (string, error) {
 	envVars := testrunnerEnvVars(r.cfg)
 	name := seederJobName(runID)
-	job := seederJob(ns, r.cfg.TestImage, r.cfg.ImagePullSecret, labels, envVars, r.cfg.TTLAfterFinished)
+	hostAliases := parseHostAliases(r.cfg.HostAliases)
+	job := seederJob(ns, r.cfg.TestImage, r.cfg.ImagePullSecret, labels, envVars, r.cfg.TTLAfterFinished, hostAliases)
 	job.Name = name
 
 	r.logger.WithField("job", name).Info("running seeder")
@@ -238,7 +264,8 @@ func (r *Runner) runSeederJob(ctx context.Context, ns, runID string, labels map[
 func (r *Runner) runTestJob(ctx context.Context, ns, runID string, labels map[string]string) (string, bool, error) {
 	envVars := testrunnerEnvVars(r.cfg)
 	name := testJobName(runID)
-	job := testJob(ns, r.cfg.TestImage, r.cfg.ImagePullSecret, labels, envVars, r.cfg.TTLAfterFinished)
+	hostAliases := parseHostAliases(r.cfg.HostAliases)
+	job := testJob(ns, r.cfg.TestImage, r.cfg.ImagePullSecret, labels, envVars, r.cfg.TTLAfterFinished, hostAliases)
 	job.Name = name
 
 	r.logger.WithField("job", name).Info("running tests")

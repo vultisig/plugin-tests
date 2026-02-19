@@ -204,6 +204,13 @@ func (s *Seeder) SeedVaults(ctx context.Context) error {
 
 	s3Client := s3.New(sess)
 
+	_, err = s3Client.CreateBucket(&s3.CreateBucketInput{
+		Bucket: aws.String(s.config.S3.Bucket),
+	})
+	if err != nil {
+		s.logger.WithError(err).Debug("bucket creation (may already exist)")
+	}
+
 	s.logger.Info("seeding vault fixtures to MinIO")
 
 	for _, plugin := range s.config.Plugins {

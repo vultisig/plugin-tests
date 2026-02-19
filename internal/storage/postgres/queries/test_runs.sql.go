@@ -13,10 +13,17 @@ import (
 
 const countTestRuns = `-- name: CountTestRuns :one
 SELECT COUNT(*)::bigint FROM test_runs
+WHERE ($1::text IS NULL OR plugin_id = $1)
+  AND ($2::test_run_status IS NULL OR status = $2)
 `
 
-func (q *Queries) CountTestRuns(ctx context.Context) (int64, error) {
-	row := q.db.QueryRow(ctx, countTestRuns)
+type CountTestRunsParams struct {
+	PluginID pgtype.Text       `json:"plugin_id"`
+	Status   NullTestRunStatus `json:"status"`
+}
+
+func (q *Queries) CountTestRuns(ctx context.Context, arg *CountTestRunsParams) (int64, error) {
+	row := q.db.QueryRow(ctx, countTestRuns, arg.PluginID, arg.Status)
 	var column_1 int64
 	err := row.Scan(&column_1)
 	return column_1, err
@@ -60,6 +67,30 @@ func (q *Queries) CreateTestRun(ctx context.Context, arg *CreateTestRunParams) (
 		&i.UpdatedAt,
 	)
 	return &i, err
+}
+
+const getDistinctPluginIDs = `-- name: GetDistinctPluginIDs :many
+SELECT DISTINCT plugin_id FROM test_runs ORDER BY plugin_id
+`
+
+func (q *Queries) GetDistinctPluginIDs(ctx context.Context) ([]string, error) {
+	rows, err := q.db.Query(ctx, getDistinctPluginIDs)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []string{}
+	for rows.Next() {
+		var plugin_id string
+		if err := rows.Scan(&plugin_id); err != nil {
+			return nil, err
+		}
+		items = append(items, plugin_id)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
 }
 
 const getStaleRunningRuns = `-- name: GetStaleRunningRuns :many
@@ -127,17 +158,26 @@ func (q *Queries) GetTestRun(ctx context.Context, id pgtype.UUID) (*TestRun, err
 
 const listTestRuns = `-- name: ListTestRuns :many
 SELECT id, plugin_id, proposal_id, version, status, requested_by, artifact_prefix, error_message, started_at, finished_at, created_at, updated_at FROM test_runs
+WHERE ($1::text IS NULL OR plugin_id = $1)
+  AND ($2::test_run_status IS NULL OR status = $2)
 ORDER BY created_at DESC
-LIMIT $1 OFFSET $2
+LIMIT $4 OFFSET $3
 `
 
 type ListTestRunsParams struct {
-	Limit  int32 `json:"limit"`
-	Offset int32 `json:"offset"`
+	PluginID    pgtype.Text       `json:"plugin_id"`
+	Status      NullTestRunStatus `json:"status"`
+	QueryOffset int32             `json:"query_offset"`
+	QueryLimit  int32             `json:"query_limit"`
 }
 
 func (q *Queries) ListTestRuns(ctx context.Context, arg *ListTestRunsParams) ([]*TestRun, error) {
-	rows, err := q.db.Query(ctx, listTestRuns, arg.Limit, arg.Offset)
+	rows, err := q.db.Query(ctx, listTestRuns,
+		arg.PluginID,
+		arg.Status,
+		arg.QueryOffset,
+		arg.QueryLimit,
+	)
 	if err != nil {
 		return nil, err
 	}

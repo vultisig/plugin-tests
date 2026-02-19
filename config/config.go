@@ -13,6 +13,7 @@ type APIConfig struct {
 	Server     ServerConfig   `envconfig:"SERVER"`
 	Database   DatabaseConfig `envconfig:"DATABASE"`
 	QueueRedis RedisConfig    `envconfig:"QUEUE_REDIS"`
+	ArtifactS3 S3Config       `envconfig:"ARTIFACT_S3"`
 }
 
 type WorkerConfig struct {
@@ -67,6 +68,7 @@ type K8sJobConfig struct {
 	EncryptionSecret    string        `envconfig:"ENCRYPTION_SECRET"`
 	JWTSecret           string        `envconfig:"JWT_SECRET"`
 	PluginEndpoint      string        `envconfig:"PLUGIN_ENDPOINT"`
+	HostAliases         string        `envconfig:"HOST_ALIASES"`
 }
 
 type JanitorConfig struct {

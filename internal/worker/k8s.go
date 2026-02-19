@@ -190,11 +190,39 @@ func fetchJobLogs(ctx context.Context, clientset kubernetes.Interface, namespace
 	return fetchJobLogsByContainer(ctx, clientset, namespace, name, "dummy", maxRetries, retryDelay)
 }
 
-func createIntraNamespaceNetworkPolicy(ctx context.Context, clientset kubernetes.Interface, namespace string) error {
+func createIntraNamespaceNetworkPolicy(ctx context.Context, clientset kubernetes.Interface, namespace string, pluginPort int32) error {
 	dnsPort := intstr.FromInt32(53)
 	httpsPort := intstr.FromInt32(443)
 	udp := corev1.ProtocolUDP
 	tcp := corev1.ProtocolTCP
+
+	egressRules := []networkingv1.NetworkPolicyEgressRule{
+		{
+			To: []networkingv1.NetworkPolicyPeer{
+				{PodSelector: &metav1.LabelSelector{}},
+			},
+		},
+		{
+			Ports: []networkingv1.NetworkPolicyPort{
+				{Protocol: &udp, Port: &dnsPort},
+				{Protocol: &tcp, Port: &dnsPort},
+			},
+		},
+		{
+			Ports: []networkingv1.NetworkPolicyPort{
+				{Protocol: &tcp, Port: &httpsPort},
+			},
+		},
+	}
+
+	if pluginPort > 0 && pluginPort != 443 {
+		pp := intstr.FromInt32(pluginPort)
+		egressRules = append(egressRules, networkingv1.NetworkPolicyEgressRule{
+			Ports: []networkingv1.NetworkPolicyPort{
+				{Protocol: &tcp, Port: &pp},
+			},
+		})
+	}
 
 	policy := &networkingv1.NetworkPolicy{
 		ObjectMeta: metav1.ObjectMeta{
@@ -214,24 +242,7 @@ func createIntraNamespaceNetworkPolicy(ctx context.Context, clientset kubernetes
 					},
 				},
 			},
-			Egress: []networkingv1.NetworkPolicyEgressRule{
-				{
-					To: []networkingv1.NetworkPolicyPeer{
-						{PodSelector: &metav1.LabelSelector{}},
-					},
-				},
-				{
-					Ports: []networkingv1.NetworkPolicyPort{
-						{Protocol: &udp, Port: &dnsPort},
-						{Protocol: &tcp, Port: &dnsPort},
-					},
-				},
-				{
-					Ports: []networkingv1.NetworkPolicyPort{
-						{Protocol: &tcp, Port: &httpsPort},
-					},
-				},
-			},
+			Egress: egressRules,
 		},
 	}
 	_, err := clientset.NetworkingV1().NetworkPolicies(namespace).Create(ctx, policy, metav1.CreateOptions{})

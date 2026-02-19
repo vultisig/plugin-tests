@@ -88,16 +88,22 @@ func runTest() {
 		logger.WithError(err).Fatal("failed to generate EVM fixture")
 	}
 
-	client := testrunner.NewTestClient(verifierURL)
+	pluginURL := requireEnv("PLUGIN_ENDPOINT")
 
-	logger.WithField("verifier_url", verifierURL).Info("waiting for verifier health")
+	client := testrunner.NewTestClient(verifierURL)
+	pluginCli := testrunner.NewTestClient(pluginURL)
+
+	logger.WithFields(logrus.Fields{
+		"verifier_url": verifierURL,
+		"plugin_url":   pluginURL,
+	}).Info("waiting for verifier health")
 	err = client.WaitForHealth(60 * time.Second)
 	if err != nil {
 		logger.WithError(err).Fatal("verifier not healthy")
 	}
 	logger.Info("verifier is healthy")
 
-	suite := testrunner.NewTestSuite(client, fixture, plugins, jwtToken, evmFixture, logger)
+	suite := testrunner.NewTestSuite(client, pluginCli, fixture, plugins, jwtToken, evmFixture, logger)
 	suite.RunAll()
 
 	if suite.Failed > 0 {

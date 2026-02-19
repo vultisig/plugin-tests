@@ -135,18 +135,25 @@ func (s *Server) handleListTestRuns(c echo.Context) error {
 		offset = parsed
 	}
 
+	filterParams := buildFilterParams(c)
+
 	ctx := c.Request().Context()
 
 	runs, err := s.db.Queries().ListTestRuns(ctx, &queries.ListTestRunsParams{
-		Limit:  int32(limit),
-		Offset: int32(offset),
+		PluginID:    filterParams.PluginID,
+		Status:      filterParams.Status,
+		QueryLimit:  int32(limit),
+		QueryOffset: int32(offset),
 	})
 	if err != nil {
 		s.logger.WithError(err).Error("failed to list test runs")
 		return c.JSON(http.StatusInternalServerError, ErrorResponse{Error: "failed to list test runs"})
 	}
 
-	total, err := s.db.Queries().CountTestRuns(ctx)
+	total, err := s.db.Queries().CountTestRuns(ctx, &queries.CountTestRunsParams{
+		PluginID: filterParams.PluginID,
+		Status:   filterParams.Status,
+	})
 	if err != nil {
 		s.logger.WithError(err).Error("failed to count test runs")
 		return c.JSON(http.StatusInternalServerError, ErrorResponse{Error: "failed to count test runs"})
@@ -163,4 +170,23 @@ func (s *Server) handleListTestRuns(c echo.Context) error {
 		Limit:  limit,
 		Offset: offset,
 	})
+}
+
+type filterParams struct {
+	PluginID pgtype.Text
+	Status   queries.NullTestRunStatus
+}
+
+func buildFilterParams(c echo.Context) filterParams {
+	var fp filterParams
+	if v := strings.TrimSpace(c.QueryParam("plugin_id")); v != "" {
+		fp.PluginID = pgtype.Text{String: v, Valid: true}
+	}
+	if v := strings.TrimSpace(c.QueryParam("status")); v != "" {
+		fp.Status = queries.NullTestRunStatus{
+			TestRunStatus: queries.TestRunStatus(v),
+			Valid:         true,
+		}
+	}
+	return fp
 }

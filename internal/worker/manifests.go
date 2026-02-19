@@ -3,6 +3,7 @@ package worker
 import (
 	"encoding/json"
 	"fmt"
+	"strings"
 
 	"github.com/vultisig/plugin-tests/config"
 
@@ -72,6 +73,30 @@ type workerJSON struct {
 }
 
 func int32Ptr(i int32) *int32 { return &i }
+func boolPtr(b bool) *bool    { return &b }
+
+func parseHostAliases(raw string) []corev1.HostAlias {
+	if raw == "" {
+		return nil
+	}
+	var aliases []corev1.HostAlias
+	for _, entry := range strings.Split(raw, ",") {
+		parts := strings.SplitN(strings.TrimSpace(entry), "=", 2)
+		if len(parts) != 2 {
+			continue
+		}
+		hostname := strings.TrimSpace(parts[0])
+		ip := strings.TrimSpace(parts[1])
+		if hostname == "" || ip == "" {
+			continue
+		}
+		aliases = append(aliases, corev1.HostAlias{
+			IP:        ip,
+			Hostnames: []string{hostname},
+		})
+	}
+	return aliases
+}
 
 func infraPostgresObjects(ns, image string, labels map[string]string) (*appsv1.Deployment, *corev1.Service) {
 	selectorLabels := map[string]string{"app": "postgres"}
@@ -86,8 +111,9 @@ func infraPostgresObjects(ns, image string, labels map[string]string) (*appsv1.D
 				ObjectMeta: metav1.ObjectMeta{Labels: allLabels},
 				Spec: corev1.PodSpec{
 					Containers: []corev1.Container{{
-						Name:  "postgres",
-						Image: image,
+						Name:            "postgres",
+						Image:           image,
+						ImagePullPolicy: corev1.PullIfNotPresent,
 						Env: []corev1.EnvVar{
 							{Name: "POSTGRES_USER", Value: "vultisig"},
 							{Name: "POSTGRES_PASSWORD", Value: "vultisig"},
@@ -131,9 +157,10 @@ func infraRedisObjects(ns, image string, labels map[string]string) (*appsv1.Depl
 				ObjectMeta: metav1.ObjectMeta{Labels: allLabels},
 				Spec: corev1.PodSpec{
 					Containers: []corev1.Container{{
-						Name:  "redis",
-						Image: image,
-						Ports: []corev1.ContainerPort{{ContainerPort: 6379}},
+						Name:            "redis",
+						Image:           image,
+						ImagePullPolicy: corev1.PullIfNotPresent,
+						Ports:           []corev1.ContainerPort{{ContainerPort: 6379}},
 						ReadinessProbe: &corev1.Probe{
 							ProbeHandler: corev1.ProbeHandler{
 								TCPSocket: &corev1.TCPSocketAction{Port: intstr.FromInt32(6379)},
@@ -171,9 +198,10 @@ func infraMinioObjects(ns, image string, labels map[string]string) (*appsv1.Depl
 				ObjectMeta: metav1.ObjectMeta{Labels: allLabels},
 				Spec: corev1.PodSpec{
 					Containers: []corev1.Container{{
-						Name:    "minio",
-						Image:   image,
-						Command: []string{"minio", "server", "/data"},
+						Name:            "minio",
+						Image:           image,
+						ImagePullPolicy: corev1.PullIfNotPresent,
+						Command:         []string{"minio", "server", "/data"},
 						Env: []corev1.EnvVar{
 							{Name: "MINIO_ROOT_USER", Value: "minioadmin"},
 							{Name: "MINIO_ROOT_PASSWORD", Value: "minioadmin"},
@@ -261,7 +289,7 @@ func workerConfigMap(ns string, cfg config.K8sJobConfig) (*corev1.ConfigMap, err
 	}, nil
 }
 
-func verifierDeploymentObjects(ns, image, pullSecret string, labels map[string]string) (*appsv1.Deployment, *corev1.Service) {
+func verifierDeploymentObjects(ns, image, pullSecret string, labels map[string]string, hostAliases []corev1.HostAlias) (*appsv1.Deployment, *corev1.Service) {
 	selectorLabels := map[string]string{"app": "verifier"}
 	allLabels := mergeLabels(labels, selectorLabels)
 
@@ -273,10 +301,13 @@ func verifierDeploymentObjects(ns, image, pullSecret string, labels map[string]s
 			Template: corev1.PodTemplateSpec{
 				ObjectMeta: metav1.ObjectMeta{Labels: allLabels},
 				Spec: corev1.PodSpec{
+					EnableServiceLinks: boolPtr(false),
+					HostAliases:        hostAliases,
 					Containers: []corev1.Container{{
-						Name:  "verifier",
-						Image: image,
-						Ports: []corev1.ContainerPort{{ContainerPort: 8080}},
+						Name:            "verifier",
+						Image:           image,
+						ImagePullPolicy: corev1.PullIfNotPresent,
+						Ports:           []corev1.ContainerPort{{ContainerPort: 8080}},
 						ReadinessProbe: &corev1.Probe{
 							ProbeHandler: corev1.ProbeHandler{
 								HTTPGet: &corev1.HTTPGetAction{
@@ -333,10 +364,12 @@ func verifierWorkerDeployment(ns, image, pullSecret string, labels map[string]st
 			Template: corev1.PodTemplateSpec{
 				ObjectMeta: metav1.ObjectMeta{Labels: allLabels},
 				Spec: corev1.PodSpec{
+					EnableServiceLinks: boolPtr(false),
 					Containers: []corev1.Container{{
-						Name:      "worker",
-						Image:     image,
-						Resources: verifierResources(),
+						Name:            "worker",
+						Image:           image,
+						ImagePullPolicy: corev1.PullIfNotPresent,
+						Resources:       verifierResources(),
 						VolumeMounts: []corev1.VolumeMount{{
 							Name:      "config",
 							MountPath: "/app/config.json",
@@ -363,15 +396,15 @@ func verifierWorkerDeployment(ns, image, pullSecret string, labels map[string]st
 	return dep
 }
 
-func seederJob(ns, image, pullSecret string, labels map[string]string, envVars []corev1.EnvVar, ttlSeconds int32) *batchv1.Job {
-	return buildTestJob("seeder", ns, image, pullSecret, labels, []string{"seed"}, envVars, ttlSeconds)
+func seederJob(ns, image, pullSecret string, labels map[string]string, envVars []corev1.EnvVar, ttlSeconds int32, hostAliases []corev1.HostAlias) *batchv1.Job {
+	return buildTestJob("seeder", ns, image, pullSecret, labels, []string{"seed"}, envVars, ttlSeconds, hostAliases)
 }
 
-func testJob(ns, image, pullSecret string, labels map[string]string, envVars []corev1.EnvVar, ttlSeconds int32) *batchv1.Job {
-	return buildTestJob("test", ns, image, pullSecret, labels, []string{"test"}, envVars, ttlSeconds)
+func testJob(ns, image, pullSecret string, labels map[string]string, envVars []corev1.EnvVar, ttlSeconds int32, hostAliases []corev1.HostAlias) *batchv1.Job {
+	return buildTestJob("test", ns, image, pullSecret, labels, []string{"test"}, envVars, ttlSeconds, hostAliases)
 }
 
-func buildTestJob(name, ns, image, pullSecret string, labels map[string]string, args []string, envVars []corev1.EnvVar, ttlSeconds int32) *batchv1.Job {
+func buildTestJob(name, ns, image, pullSecret string, labels map[string]string, args []string, envVars []corev1.EnvVar, ttlSeconds int32, hostAliases []corev1.HostAlias) *batchv1.Job {
 	var backoffLimit int32
 	var ttlPtr *int32
 	if ttlSeconds > 0 {
@@ -391,12 +424,15 @@ func buildTestJob(name, ns, image, pullSecret string, labels map[string]string, 
 				ObjectMeta: metav1.ObjectMeta{Labels: labels},
 				Spec: corev1.PodSpec{
 					RestartPolicy: corev1.RestartPolicyNever,
+					HostAliases:   hostAliases,
 					Containers: []corev1.Container{{
-						Name:      "testrunner",
-						Image:     image,
-						Args:      args,
-						Env:       envVars,
-						Resources: jobResources(),
+						Name:            "testrunner",
+						Image:           image,
+						ImagePullPolicy: corev1.PullIfNotPresent,
+						Command:         []string{"/app/main"},
+						Args:            args,
+						Env:             envVars,
+						Resources:       jobResources(),
 					}},
 				},
 			},

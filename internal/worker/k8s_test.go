@@ -236,7 +236,7 @@ func TestCreateIntraNamespaceNetworkPolicy(t *testing.T) {
 	t.Run("success", func(t *testing.T) {
 		clientset := fake.NewSimpleClientset()
 
-		err := createIntraNamespaceNetworkPolicy(context.Background(), clientset, "test-ns")
+		err := createIntraNamespaceNetworkPolicy(context.Background(), clientset, "test-ns", 0)
 		require.NoError(t, err)
 
 		policy, err := clientset.NetworkingV1().NetworkPolicies("test-ns").Get(context.Background(), "allow-intra-namespace", metav1.GetOptions{})
@@ -247,13 +247,24 @@ func TestCreateIntraNamespaceNetworkPolicy(t *testing.T) {
 		require.Len(t, policy.Spec.Egress, 3)
 	})
 
+	t.Run("with plugin port", func(t *testing.T) {
+		clientset := fake.NewSimpleClientset()
+
+		err := createIntraNamespaceNetworkPolicy(context.Background(), clientset, "test-ns", 8082)
+		require.NoError(t, err)
+
+		policy, err := clientset.NetworkingV1().NetworkPolicies("test-ns").Get(context.Background(), "allow-intra-namespace", metav1.GetOptions{})
+		require.NoError(t, err)
+		require.Len(t, policy.Spec.Egress, 4)
+	})
+
 	t.Run("already exists", func(t *testing.T) {
 		clientset := fake.NewSimpleClientset()
 
-		err := createIntraNamespaceNetworkPolicy(context.Background(), clientset, "test-ns")
+		err := createIntraNamespaceNetworkPolicy(context.Background(), clientset, "test-ns", 0)
 		require.NoError(t, err)
 
-		err = createIntraNamespaceNetworkPolicy(context.Background(), clientset, "test-ns")
+		err = createIntraNamespaceNetworkPolicy(context.Background(), clientset, "test-ns", 0)
 		assert.NoError(t, err)
 	})
 }

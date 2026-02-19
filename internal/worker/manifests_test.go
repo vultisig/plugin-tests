@@ -105,7 +105,7 @@ func TestVerifierDeploymentObjects(t *testing.T) {
 	labels := map[string]string{"run": "123"}
 
 	t.Run("with pull secret", func(t *testing.T) {
-		dep, svc := verifierDeploymentObjects("ns", "verifier:v1", "my-secret", labels)
+		dep, svc := verifierDeploymentObjects("ns", "verifier:v1", "my-secret", labels, nil)
 
 		assert.Equal(t, "verifier", dep.Name)
 		require.Len(t, dep.Spec.Template.Spec.Containers, 1)
@@ -125,7 +125,7 @@ func TestVerifierDeploymentObjects(t *testing.T) {
 	})
 
 	t.Run("without pull secret", func(t *testing.T) {
-		dep, _ := verifierDeploymentObjects("ns", "verifier:v1", "", labels)
+		dep, _ := verifierDeploymentObjects("ns", "verifier:v1", "", labels, nil)
 		assert.Empty(t, dep.Spec.Template.Spec.ImagePullSecrets)
 	})
 }
@@ -143,7 +143,7 @@ func TestVerifierWorkerDeployment(t *testing.T) {
 
 func TestSeederJob(t *testing.T) {
 	envVars := testrunnerEnvVars(testK8sCfg)
-	job := seederJob("ns", "testrunner:v1", "", nil, envVars, 300)
+	job := seederJob("ns", "testrunner:v1", "", nil, envVars, 300, nil)
 
 	assert.Equal(t, "seeder", job.Name)
 	assert.Equal(t, "ns", job.Namespace)
@@ -160,7 +160,7 @@ func TestSeederJob(t *testing.T) {
 
 func TestTestJob(t *testing.T) {
 	envVars := testrunnerEnvVars(testK8sCfg)
-	job := testJob("ns", "testrunner:v1", "my-secret", nil, envVars, 0)
+	job := testJob("ns", "testrunner:v1", "my-secret", nil, envVars, 0, nil)
 
 	assert.Equal(t, "test", job.Name)
 	require.Len(t, job.Spec.Template.Spec.Containers, 1)
