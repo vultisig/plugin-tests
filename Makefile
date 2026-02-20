@@ -7,7 +7,7 @@ build-worker:
 	go build -o bin/worker ./cmd/worker
 
 build-testrunner:
-	CGO_ENABLED=0 go build -o bin/testrunner ./cmd/testrunner
+	CGO_ENABLED=1 go build -o bin/testrunner ./cmd/testrunner
 
 sqlc:
 	sqlc generate

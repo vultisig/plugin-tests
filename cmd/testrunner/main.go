@@ -16,7 +16,7 @@ func main() {
 	logger.SetFormatter(&logrus.TextFormatter{FullTimestamp: true})
 
 	if len(os.Args) < 2 {
-		logger.Fatal("usage: testrunner <seed|test>")
+		logger.Fatal("usage: testrunner <seed|test|install>")
 	}
 
 	switch os.Args[1] {
@@ -24,6 +24,8 @@ func main() {
 		runSeed()
 	case "test":
 		runTest()
+	case "install":
+		runInstall()
 	default:
 		logger.Fatalf("unknown command: %s", os.Args[1])
 	}
@@ -121,6 +123,46 @@ func runTest() {
 		"passed": suite.Passed,
 		"total":  suite.Total,
 	}).Info("all tests passed")
+}
+
+func runInstall() {
+	fixture, err := testrunner.LoadFixture()
+	if err != nil {
+		logger.WithError(err).Fatal("failed to load fixture")
+	}
+
+	verifierURL := requireEnv("VERIFIER_URL")
+	relayURL := requireEnv("RELAY_URL")
+	jwtSecret := requireEnv("JWT_SECRET")
+	pluginID := requireEnv("PLUGIN_ID")
+	encryptionSecret := os.Getenv("ENCRYPTION_SECRET")
+
+	jwtToken, err := testrunner.GenerateJWT(jwtSecret, fixture.Vault.PublicKey, "integration-token-1", 24)
+	if err != nil {
+		logger.WithError(err).Fatal("failed to generate JWT")
+	}
+
+	cfg := testrunner.InstallConfig{
+		VerifierURL:      verifierURL,
+		RelayURL:         relayURL,
+		JWTToken:         jwtToken,
+		PluginID:         pluginID,
+		Fixture:          fixture,
+		EncryptionSecret: encryptionSecret,
+	}
+
+	logger.WithFields(logrus.Fields{
+		"verifier_url": verifierURL,
+		"relay_url":    relayURL,
+		"plugin_id":    pluginID,
+	}).Info("starting plugin install (MPC reshare)")
+
+	err = testrunner.RunInstall(cfg, logger)
+	if err != nil {
+		logger.WithError(err).Fatal("install failed")
+	}
+
+	logger.Info("install completed successfully")
 }
 
 func requireEnv(key string) string {

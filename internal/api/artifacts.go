@@ -80,7 +80,7 @@ func readArtifact(ctx context.Context, cfg config.S3Config, key string) (string,
 	}
 	defer out.Body.Close()
 
-	data, err := io.ReadAll(out.Body)
+	data, err := io.ReadAll(io.LimitReader(out.Body, 2<<20))
 	if err != nil {
 		return "", fmt.Errorf("failed to read S3 object body: %w", err)
 	}
