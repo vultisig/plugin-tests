@@ -46,6 +46,10 @@ func testJobName(runID string) string {
 	return dnsLabel("test-" + runIDPrefix(runID))
 }
 
+func installJobName(runID string) string {
+	return dnsLabel("install-" + runIDPrefix(runID))
+}
+
 func runLabels(runID, pluginID, kind string) map[string]string {
 	return map[string]string{
 		labelManagedBy: managedByValue,

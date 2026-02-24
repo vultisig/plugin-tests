@@ -4,7 +4,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"time"
 
 	"github.com/google/uuid"
 	"github.com/hibiken/asynq"
@@ -71,14 +70,16 @@ func (c *Consumer) Handle(ctx context.Context, t *asynq.Task) error {
 		if !createdNS {
 			return
 		}
-		cleanupCtx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
-		defer cancel()
-		delErr := deleteNamespace(cleanupCtx, c.k8s, nsName)
-		if delErr != nil {
-			log.WithError(delErr).Warn("failed to cleanup namespace")
-		} else {
-			log.Info("namespace cleaned up")
-		}
+		// TODO: re-enable after debugging
+		// cleanupCtx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+		// defer cancel()
+		// delErr := deleteNamespace(cleanupCtx, c.k8s, nsName)
+		// if delErr != nil {
+		// 	log.WithError(delErr).Warn("failed to cleanup namespace")
+		// } else {
+		// 	log.Info("namespace cleaned up")
+		// }
+		log.Info("namespace cleanup skipped (debug mode)")
 	}()
 
 	err = createNamespace(ctx, c.k8s, nsName, labels)
@@ -89,7 +90,28 @@ func (c *Consumer) Handle(ctx context.Context, t *asynq.Task) error {
 	createdNS = true
 	log.Info("namespace created")
 
-	runner := NewRunner(c.k8s, c.cfg, log)
+	if c.cfg.ImagePullSecret != "" {
+		copyErr := copySecret(ctx, c.k8s, c.cfg.SystemNamespace, nsName, c.cfg.ImagePullSecret)
+		if copyErr != nil {
+			log.WithError(copyErr).Warn("failed to copy image pull secret")
+		}
+	}
+	if c.cfg.TLSSecretName != "" {
+		copyErr := copySecret(ctx, c.k8s, c.cfg.SystemNamespace, nsName, c.cfg.TLSSecretName)
+		if copyErr != nil {
+			log.WithError(copyErr).Warn("failed to copy TLS secret")
+		}
+	}
+
+	jobCfg := c.cfg
+	if payload.PluginEndpoint != "" {
+		jobCfg.PluginEndpoint = payload.PluginEndpoint
+	}
+	if payload.PluginAPIKey != "" {
+		jobCfg.PluginAPIKey = payload.PluginAPIKey
+	}
+
+	runner := NewRunner(c.k8s, jobCfg, log)
 	result := runner.Run(ctx, nsName, payload.RunID, payload.PluginID, labels)
 
 	uploader := NewArtifactUploader(c.artifactCfg)

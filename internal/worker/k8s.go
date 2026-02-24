@@ -39,6 +39,29 @@ func createNamespace(ctx context.Context, clientset kubernetes.Interface, name s
 	return nil
 }
 
+func copySecret(ctx context.Context, clientset kubernetes.Interface, srcNS, dstNS, name string) error {
+	secret, err := clientset.CoreV1().Secrets(srcNS).Get(ctx, name, metav1.GetOptions{})
+	if err != nil {
+		return fmt.Errorf("get secret %s/%s: %w", srcNS, name, err)
+	}
+	copy := &corev1.Secret{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      secret.Name,
+			Namespace: dstNS,
+		},
+		Type: secret.Type,
+		Data: secret.Data,
+	}
+	_, err = clientset.CoreV1().Secrets(dstNS).Create(ctx, copy, metav1.CreateOptions{})
+	if err != nil {
+		if k8serrors.IsAlreadyExists(err) {
+			return nil
+		}
+		return fmt.Errorf("create secret %s/%s: %w", dstNS, name, err)
+	}
+	return nil
+}
+
 func createDenyAllNetworkPolicy(ctx context.Context, clientset kubernetes.Interface, namespace string) error {
 	dnsPort := intstr.FromInt32(53)
 	udp := corev1.ProtocolUDP
@@ -251,6 +274,61 @@ func createIntraNamespaceNetworkPolicy(ctx context.Context, clientset kubernetes
 			return nil
 		}
 		return fmt.Errorf("failed to create network policy in %s: %w", namespace, err)
+	}
+	return nil
+}
+
+func applyIngress(ctx context.Context, clientset kubernetes.Interface, ing *networkingv1.Ingress) error {
+	_, err := clientset.NetworkingV1().Ingresses(ing.Namespace).Create(ctx, ing, metav1.CreateOptions{})
+	if err != nil {
+		if k8serrors.IsAlreadyExists(err) {
+			return nil
+		}
+		return fmt.Errorf("failed to create ingress %s: %w", ing.Name, err)
+	}
+	return nil
+}
+
+func createIngressNetworkPolicy(ctx context.Context, clientset kubernetes.Interface, namespace string) error {
+	tcp := corev1.ProtocolTCP
+	verifierPort := intstr.FromInt32(8080)
+
+	policy := &networkingv1.NetworkPolicy{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "allow-ingress-controller",
+			Namespace: namespace,
+		},
+		Spec: networkingv1.NetworkPolicySpec{
+			PodSelector: metav1.LabelSelector{
+				MatchLabels: map[string]string{"app": "verifier"},
+			},
+			PolicyTypes: []networkingv1.PolicyType{
+				networkingv1.PolicyTypeIngress,
+			},
+			Ingress: []networkingv1.NetworkPolicyIngressRule{
+				{
+					From: []networkingv1.NetworkPolicyPeer{
+						{
+							NamespaceSelector: &metav1.LabelSelector{
+								MatchLabels: map[string]string{
+									"kubernetes.io/metadata.name": "ingress-nginx",
+								},
+							},
+						},
+					},
+					Ports: []networkingv1.NetworkPolicyPort{
+						{Protocol: &tcp, Port: &verifierPort},
+					},
+				},
+			},
+		},
+	}
+	_, err := clientset.NetworkingV1().NetworkPolicies(namespace).Create(ctx, policy, metav1.CreateOptions{})
+	if err != nil {
+		if k8serrors.IsAlreadyExists(err) {
+			return nil
+		}
+		return fmt.Errorf("failed to create ingress network policy in %s: %w", namespace, err)
 	}
 	return nil
 }

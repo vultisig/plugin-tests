@@ -10,6 +10,7 @@ import (
 	appsv1 "k8s.io/api/apps/v1"
 	batchv1 "k8s.io/api/batch/v1"
 	corev1 "k8s.io/api/core/v1"
+	networkingv1 "k8s.io/api/networking/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
@@ -352,6 +353,62 @@ func verifierDeploymentObjects(ns, image, pullSecret string, labels map[string]s
 	return dep, svc
 }
 
+func verifierIngress(ns, host, tlsSecretName string, labels map[string]string) *networkingv1.Ingress {
+	pathType := networkingv1.PathTypePrefix
+	ingressClassName := "nginx"
+
+	annotations := map[string]string{}
+	if tlsSecretName == "" {
+		annotations["nginx.ingress.kubernetes.io/ssl-redirect"] = "false"
+	}
+
+	ing := &networkingv1.Ingress{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:        "verifier",
+			Namespace:   ns,
+			Labels:      labels,
+			Annotations: annotations,
+		},
+		Spec: networkingv1.IngressSpec{
+			IngressClassName: &ingressClassName,
+			Rules: []networkingv1.IngressRule{
+				{
+					Host: host,
+					IngressRuleValue: networkingv1.IngressRuleValue{
+						HTTP: &networkingv1.HTTPIngressRuleValue{
+							Paths: []networkingv1.HTTPIngressPath{
+								{
+									Path:     "/",
+									PathType: &pathType,
+									Backend: networkingv1.IngressBackend{
+										Service: &networkingv1.IngressServiceBackend{
+											Name: "verifier",
+											Port: networkingv1.ServiceBackendPort{
+												Number: 8080,
+											},
+										},
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+	}
+
+	if tlsSecretName != "" {
+		ing.Spec.TLS = []networkingv1.IngressTLS{
+			{
+				Hosts:      []string{host},
+				SecretName: tlsSecretName,
+			},
+		}
+	}
+
+	return ing
+}
+
 func verifierWorkerDeployment(ns, image, pullSecret string, labels map[string]string) *appsv1.Deployment {
 	selectorLabels := map[string]string{"app": "verifier-worker"}
 	allLabels := mergeLabels(labels, selectorLabels)
@@ -404,6 +461,10 @@ func testJob(ns, image, pullSecret string, labels map[string]string, envVars []c
 	return buildTestJob("test", ns, image, pullSecret, labels, []string{"test"}, envVars, ttlSeconds, hostAliases)
 }
 
+func installJob(ns, image, pullSecret string, labels map[string]string, envVars []corev1.EnvVar, ttlSeconds int32, hostAliases []corev1.HostAlias) *batchv1.Job {
+	return buildTestJob("install", ns, image, pullSecret, labels, []string{"install"}, envVars, ttlSeconds, hostAliases)
+}
+
 func buildTestJob(name, ns, image, pullSecret string, labels map[string]string, args []string, envVars []corev1.EnvVar, ttlSeconds int32, hostAliases []corev1.HostAlias) *batchv1.Job {
 	var backoffLimit int32
 	var ttlPtr *int32
@@ -447,7 +508,7 @@ func buildTestJob(name, ns, image, pullSecret string, labels map[string]string, 
 }
 
 func testrunnerEnvVars(cfg config.K8sJobConfig) []corev1.EnvVar {
-	return []corev1.EnvVar{
+	vars := []corev1.EnvVar{
 		{Name: "POSTGRES_DSN", Value: "postgres://vultisig:vultisig@postgres:5432/vultisig-verifier?sslmode=disable"},
 		{Name: "MINIO_ENDPOINT", Value: "http://minio:9000"},
 		{Name: "MINIO_ACCESS_KEY", Value: "minioadmin"},
@@ -458,6 +519,28 @@ func testrunnerEnvVars(cfg config.K8sJobConfig) []corev1.EnvVar {
 		{Name: "JWT_SECRET", Value: cfg.JWTSecret},
 		{Name: "PLUGIN_ENDPOINT", Value: cfg.PluginEndpoint},
 	}
+	if cfg.PluginAPIKey != "" {
+		vars = append(vars, corev1.EnvVar{Name: "PLUGIN_API_KEY", Value: cfg.PluginAPIKey})
+	}
+	if cfg.VaultB64 != "" {
+		vars = append(vars, corev1.EnvVar{Name: "VAULT_B64", Value: cfg.VaultB64})
+	}
+	if cfg.ServerVaultB64 != "" {
+		vars = append(vars, corev1.EnvVar{Name: "SERVER_VAULT_B64", Value: cfg.ServerVaultB64})
+	}
+	return vars
+}
+
+func installJobEnvVars(cfg config.K8sJobConfig, pluginID string) []corev1.EnvVar {
+	vars := testrunnerEnvVars(cfg)
+	vars = append(vars,
+		corev1.EnvVar{Name: "RELAY_URL", Value: "https://api.vultisig.com/router"},
+		corev1.EnvVar{Name: "PLUGIN_ID", Value: pluginID},
+	)
+	if cfg.TestTargetAddress != "" {
+		vars = append(vars, corev1.EnvVar{Name: "TEST_TARGET_ADDRESS", Value: cfg.TestTargetAddress})
+	}
+	return vars
 }
 
 func infraResources() corev1.ResourceRequirements {

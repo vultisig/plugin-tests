@@ -19,10 +19,12 @@ import (
 const defaultSuite = "integration"
 
 type CreateTestRunRequest struct {
-	PluginID    string `json:"plugin_id"`
-	ProposalID  string `json:"proposal_id,omitempty"`
-	Version     string `json:"version,omitempty"`
-	RequestedBy string `json:"requested_by"`
+	PluginID       string `json:"plugin_id"`
+	ProposalID     string `json:"proposal_id,omitempty"`
+	Version        string `json:"version,omitempty"`
+	RequestedBy    string `json:"requested_by"`
+	PluginEndpoint string `json:"plugin_endpoint,omitempty"`
+	PluginAPIKey   string `json:"plugin_api_key,omitempty"`
 }
 
 func (s *Server) handleCreateTestRun(c echo.Context) error {
@@ -67,12 +69,14 @@ func (s *Server) handleCreateTestRun(c echo.Context) error {
 	result := types.TestRunFromQuery(run)
 
 	payload := queue.TestRunPayload{
-		RunID:       result.ID.String(),
-		PluginID:    req.PluginID,
-		ProposalID:  req.ProposalID,
-		Version:     req.Version,
-		Suite:       defaultSuite,
-		RequestedBy: req.RequestedBy,
+		RunID:          result.ID.String(),
+		PluginID:       req.PluginID,
+		ProposalID:     req.ProposalID,
+		Version:        req.Version,
+		Suite:          defaultSuite,
+		RequestedBy:    req.RequestedBy,
+		PluginEndpoint: strings.TrimSpace(req.PluginEndpoint),
+		PluginAPIKey:   strings.TrimSpace(req.PluginAPIKey),
 	}
 
 	_, err = s.producer.EnqueueTestRun(payload)

@@ -8,28 +8,26 @@ import (
 )
 
 type TestSuite struct {
-	client     *TestClient
-	pluginCli  *TestClient
-	fixture    *FixtureData
-	plugins    []PluginConfig
-	jwtToken   string
-	evmFixture *EVMFixture
-	logger     *logrus.Logger
-	Passed     int
-	Failed     int
-	Total      int
-	Errors     []string
+	client    *TestClient
+	pluginCli *TestClient
+	fixture   *FixtureData
+	plugins   []PluginConfig
+	jwtToken  string
+	logger    *logrus.Logger
+	Passed    int
+	Failed    int
+	Total     int
+	Errors    []string
 }
 
-func NewTestSuite(client *TestClient, pluginCli *TestClient, fixture *FixtureData, plugins []PluginConfig, jwtToken string, evmFixture *EVMFixture, logger *logrus.Logger) *TestSuite {
+func NewTestSuite(client *TestClient, pluginCli *TestClient, fixture *FixtureData, plugins []PluginConfig, jwtToken string, logger *logrus.Logger) *TestSuite {
 	return &TestSuite{
-		client:     client,
-		pluginCli:  pluginCli,
-		fixture:    fixture,
-		plugins:    plugins,
-		jwtToken:   jwtToken,
-		evmFixture: evmFixture,
-		logger:     logger,
+		client:    client,
+		pluginCli: pluginCli,
+		fixture:   fixture,
+		plugins:   plugins,
+		jwtToken:  jwtToken,
+		logger:    logger,
 	}
 }
 
@@ -149,10 +147,8 @@ func (s *TestSuite) healthChecks() bool {
 func (s *TestSuite) verifierPluginTests() bool {
 	beforeFailed := s.Failed
 
-	for i, plugin := range s.plugins {
+	for _, plugin := range s.plugins {
 		pluginID := plugin.ID
-		apiKey := fmt.Sprintf("integration-test-apikey-%s", pluginID)
-		policyID := fmt.Sprintf("00000000-0000-0000-0000-0000000000%02d", i+11)
 
 		s.run(pluginID+"/GetRecipeSpecification", func() error {
 			resp, err := s.client.GET("/plugins/" + pluginID + "/recipe-specification")
@@ -221,56 +217,12 @@ func (s *TestSuite) verifierPluginTests() bool {
 				return fmt.Errorf("request failed (verifier->plugin connectivity): %w", err)
 			}
 			defer resp.Body.Close()
+			if resp.StatusCode == http.StatusUnauthorized {
+				return fmt.Errorf("reshare returned 401 unauthorized (JWT token_type issue?)")
+			}
 			return nil
 		})
 
-		s.run(pluginID+"/Sign", func() error {
-			reqBody := map[string]interface{}{
-				"plugin_id":        pluginID,
-				"public_key":       s.fixture.Vault.PublicKey,
-				"policy_id":        policyID,
-				"transactions":     s.evmFixture.TxB64,
-				"transaction_type": "evm",
-				"messages": []map[string]interface{}{
-					{
-						"message":       s.evmFixture.MsgB64,
-						"chain":         "Ethereum",
-						"hash":          s.evmFixture.MsgSHA256B64,
-						"hash_function": "SHA256",
-					},
-				},
-			}
-
-			resp, err := s.client.WithAPIKey(apiKey).POST("/plugin-signer/sign", reqBody)
-			if err != nil {
-				return fmt.Errorf("request failed: %w", err)
-			}
-			defer resp.Body.Close()
-			if resp.StatusCode != http.StatusOK {
-				return fmt.Errorf("expected 200, got %d", resp.StatusCode)
-			}
-
-			var apiResp struct {
-				Data struct {
-					TaskIDs []string `json:"task_ids"`
-				} `json:"data"`
-			}
-			err = ReadJSONResponse(resp, &apiResp)
-			if err != nil {
-				return err
-			}
-			if len(apiResp.Data.TaskIDs) == 0 {
-				return fmt.Errorf("expected at least 1 task_id")
-			}
-
-			taskID := apiResp.Data.TaskIDs[0]
-			pollResp, pollErr := s.client.WithAPIKey(apiKey).GET("/plugin-signer/sign/response/" + taskID)
-			if pollErr != nil {
-				return fmt.Errorf("sign response poll failed: %w", pollErr)
-			}
-			defer pollResp.Body.Close()
-			return nil
-		})
 	}
 
 	return s.Failed == beforeFailed

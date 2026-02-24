@@ -10,6 +10,7 @@ import (
 type Claims struct {
 	PublicKey string `json:"public_key"`
 	TokenID   string `json:"token_id"`
+	TokenType string `json:"token_type"`
 	jwt.RegisteredClaims
 }
 
@@ -22,6 +23,7 @@ func GenerateJWT(secret, pubkey, tokenID string, expireHours int) (string, error
 	claims := &Claims{
 		PublicKey: pubkey,
 		TokenID:   tokenID,
+		TokenType: "access",
 		RegisteredClaims: jwt.RegisteredClaims{
 			ExpiresAt: jwt.NewNumericDate(expirationTime),
 			IssuedAt:  jwt.NewNumericDate(time.Now()),

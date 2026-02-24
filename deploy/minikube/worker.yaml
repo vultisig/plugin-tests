@@ -37,11 +37,21 @@ spec:
             - name: PLUGIN_TESTS_WORKER_K8S_TEST_IMAGE
               value: plugin-tests-testrunner:latest
             - name: PLUGIN_TESTS_WORKER_K8S_ENCRYPTION_SECRET
-              value: test123
+              value: "Saggy@Commotion@Occupier@Registry1"
             - name: PLUGIN_TESTS_WORKER_K8S_JWT_SECRET
               value: mysecret
             - name: PLUGIN_TESTS_WORKER_K8S_PLUGIN_ENDPOINT
               value: "http://host.minikube.internal:8082"
+            - name: PLUGIN_TESTS_WORKER_K8S_PLUGIN_API_KEY
+              value: "localhost-dca-apikey-swap"
+            - name: PLUGIN_TESTS_WORKER_K8S_TEST_TARGET_ADDRESS
+              value: "0x742d35Cc6634C0532925a3b844Bc9e7595f0bEb0"
+            - name: PLUGIN_TESTS_WORKER_K8S_VAULT_B64
+              value: ""
+            - name: PLUGIN_TESTS_WORKER_K8S_SERVER_VAULT_B64
+              value: ""
+            - name: PLUGIN_TESTS_WORKER_K8S_INGRESS_DOMAIN
+              value: "test.plugins.vultisig.com"
             - name: PLUGIN_TESTS_WORKER_K8S_HOST_ALIASES
               value: "host.minikube.internal=192.168.65.254"
             - name: PLUGIN_TESTS_WORKER_ARTIFACT_S3_ENDPOINT

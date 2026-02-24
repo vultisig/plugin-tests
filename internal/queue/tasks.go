@@ -12,4 +12,7 @@ type TestRunPayload struct {
 	ArtifactRef string `json:"artifact_ref,omitempty"`
 	Suite       string `json:"suite"`
 	RequestedBy string `json:"requested_by"`
+
+	PluginEndpoint string `json:"plugin_endpoint,omitempty"`
+	PluginAPIKey   string `json:"plugin_api_key,omitempty"`
 }

@@ -26,10 +26,12 @@ type Runner struct {
 }
 
 type RunResult struct {
-	Passed     bool
-	SeederLogs string
-	TestLogs   string
-	ErrorMsg   string
+	Passed       bool
+	SeederLogs   string
+	TestLogs     string
+	InstallLogs  string
+	VerifierHost string
+	ErrorMsg     string
 }
 
 func NewRunner(k8s kubernetes.Interface, cfg config.K8sJobConfig, logger *logrus.Entry) *Runner {
@@ -73,6 +75,14 @@ func (r *Runner) Run(ctx context.Context, namespace, runID, pluginID string, lab
 		return result
 	}
 
+	if r.cfg.IngressDomain != "" {
+		result.VerifierHost, err = r.deployIngress(ctx, namespace, runID, labels)
+		if err != nil {
+			result.ErrorMsg = err.Error()
+			return result
+		}
+	}
+
 	err = r.waitForVerifier(ctx, namespace)
 	if err != nil {
 		result.ErrorMsg = err.Error()
@@ -92,6 +102,22 @@ func (r *Runner) Run(ctx context.Context, namespace, runID, pluginID string, lab
 		return result
 	}
 
+	if !testPassed {
+		result.Passed = false
+		return result
+	}
+
+	if r.cfg.PluginEndpoint != "" {
+		var installPassed bool
+		result.InstallLogs, installPassed, err = r.runInstallJob(ctx, namespace, runID, pluginID, labels)
+		if err != nil {
+			result.ErrorMsg = fmt.Sprintf("install job failed: %s", err.Error())
+			return result
+		}
+		result.Passed = installPassed
+		return result
+	}
+
 	result.Passed = testPassed
 	return result
 }
@@ -99,7 +125,18 @@ func (r *Runner) Run(ctx context.Context, namespace, runID, pluginID string, lab
 func (r *Runner) deployNetworkPolicy(ctx context.Context, ns string) error {
 	r.logger.Info("creating network policy")
 	pluginPort := parsePort(r.cfg.PluginEndpoint)
-	return createIntraNamespaceNetworkPolicy(ctx, r.k8s, ns, pluginPort)
+	err := createIntraNamespaceNetworkPolicy(ctx, r.k8s, ns, pluginPort)
+	if err != nil {
+		return err
+	}
+	if r.cfg.IngressDomain != "" {
+		err = createIngressNetworkPolicy(ctx, r.k8s, ns)
+		if err != nil {
+			return fmt.Errorf("create ingress network policy: %w", err)
+		}
+		r.logger.Info("ingress network policy created")
+	}
+	return nil
 }
 
 func parsePort(rawURL string) int32 {
@@ -231,6 +268,17 @@ func (r *Runner) waitForVerifier(ctx context.Context, ns string) error {
 	return nil
 }
 
+func (r *Runner) deployIngress(ctx context.Context, ns, runID string, labels map[string]string) (string, error) {
+	host := fmt.Sprintf("test-%s.%s", runIDPrefix(runID), r.cfg.IngressDomain)
+	ing := verifierIngress(ns, host, r.cfg.TLSSecretName, labels)
+	err := applyIngress(ctx, r.k8s, ing)
+	if err != nil {
+		return "", fmt.Errorf("deploy ingress: %w", err)
+	}
+	r.logger.WithField("host", host).Info("ingress created")
+	return host, nil
+}
+
 func (r *Runner) runSeederJob(ctx context.Context, ns, runID string, labels map[string]string) (string, error) {
 	envVars := testrunnerEnvVars(r.cfg)
 	name := seederJobName(runID)
@@ -282,6 +330,32 @@ func (r *Runner) runTestJob(ctx context.Context, ns, runID string, labels map[st
 	logs, logErr := fetchJobLogsByContainer(ctx, r.k8s, ns, name, "testrunner", 3, 2*time.Second)
 	if logErr != nil {
 		r.logger.WithError(logErr).Warn("failed to fetch test logs")
+	}
+
+	return logs, passed, nil
+}
+
+func (r *Runner) runInstallJob(ctx context.Context, ns, runID, pluginID string, labels map[string]string) (string, bool, error) {
+	envVars := installJobEnvVars(r.cfg, pluginID)
+	name := installJobName(runID)
+	hostAliases := parseHostAliases(r.cfg.HostAliases)
+	job := installJob(ns, r.cfg.TestImage, r.cfg.ImagePullSecret, labels, envVars, r.cfg.TTLAfterFinished, hostAliases)
+	job.Name = name
+
+	r.logger.WithField("job", name).Info("running install")
+	_, err := applyJob(ctx, r.k8s, job)
+	if err != nil {
+		return "", false, fmt.Errorf("create install job: %w", err)
+	}
+
+	passed, err := waitForJob(ctx, r.k8s, ns, name, r.timeout(10*time.Minute), r.pollInterval())
+	if err != nil {
+		return "", false, fmt.Errorf("wait for install: %w", err)
+	}
+
+	logs, err := fetchJobLogsByContainer(ctx, r.k8s, ns, name, "testrunner", 3, 2*time.Second)
+	if err != nil {
+		r.logger.WithError(err).Warn("failed to fetch install logs")
 	}
 
 	return logs, passed, nil

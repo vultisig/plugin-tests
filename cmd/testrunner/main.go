@@ -85,11 +85,6 @@ func runTest() {
 		logger.WithError(err).Fatal("failed to generate JWT")
 	}
 
-	evmFixture, err := testrunner.GenerateEVMFixture(1, "0x742d35Cc6634C0532925a3b844Bc9e7595f0bEb0", "", 21000, 0)
-	if err != nil {
-		logger.WithError(err).Fatal("failed to generate EVM fixture")
-	}
-
 	pluginURL := requireEnv("PLUGIN_ENDPOINT")
 
 	client := testrunner.NewTestClient(verifierURL)
@@ -105,7 +100,7 @@ func runTest() {
 	}
 	logger.Info("verifier is healthy")
 
-	suite := testrunner.NewTestSuite(client, pluginCli, fixture, plugins, jwtToken, evmFixture, logger)
+	suite := testrunner.NewTestSuite(client, pluginCli, fixture, plugins, jwtToken, logger)
 	suite.RunAll()
 
 	if suite.Failed > 0 {
@@ -142,13 +137,18 @@ func runInstall() {
 		logger.WithError(err).Fatal("failed to generate JWT")
 	}
 
+	pluginAPIKey := requireEnv("PLUGIN_API_KEY")
+	testTargetAddress := requireEnv("TEST_TARGET_ADDRESS")
+
 	cfg := testrunner.InstallConfig{
-		VerifierURL:      verifierURL,
-		RelayURL:         relayURL,
-		JWTToken:         jwtToken,
-		PluginID:         pluginID,
-		Fixture:          fixture,
-		EncryptionSecret: encryptionSecret,
+		VerifierURL:       verifierURL,
+		RelayURL:          relayURL,
+		JWTToken:          jwtToken,
+		PluginID:          pluginID,
+		PluginAPIKey:      pluginAPIKey,
+		TestTargetAddress: testTargetAddress,
+		Fixture:           fixture,
+		EncryptionSecret:  encryptionSecret,
 	}
 
 	logger.WithFields(logrus.Fields{
@@ -157,10 +157,18 @@ func runInstall() {
 		"plugin_id":    pluginID,
 	}).Info("starting plugin install (MPC reshare)")
 
-	err = testrunner.RunInstall(cfg, logger)
+	reshareResult, err := testrunner.RunInstall(cfg, logger)
 	if err != nil {
 		logger.WithError(err).Fatal("install failed")
 	}
+	logger.Info("reshare completed successfully")
+
+	logger.Info("starting policy CRUD tests")
+	err = testrunner.RunPolicyCRUD(cfg, reshareResult, logger)
+	if err != nil {
+		logger.WithError(err).Fatal("policy CRUD failed")
+	}
+	logger.Info("policy CRUD completed successfully")
 
 	logger.Info("install completed successfully")
 }

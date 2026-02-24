@@ -12,10 +12,11 @@ var fixtureJSON []byte
 
 type FixtureData struct {
 	Vault struct {
-		PublicKey string `json:"public_key"`
-		Name      string `json:"name"`
-		CreatedAt string `json:"created_at"`
-		VaultB64  string `json:"vault_b64"`
+		PublicKey      string `json:"public_key"`
+		Name           string `json:"name"`
+		CreatedAt      string `json:"created_at"`
+		VaultB64       string `json:"vault_b64"`
+		ServerVaultB64 string `json:"server_vault_b64"`
 	} `json:"vault"`
 	Reshare struct {
 		SessionID        string   `json:"session_id"`
@@ -35,6 +36,7 @@ type PluginConfig struct {
 	ServerEndpoint string
 	Category       string
 	Audited        bool
+	APIKey         string
 }
 
 func LoadFixture() (*FixtureData, error) {
@@ -43,6 +45,17 @@ func LoadFixture() (*FixtureData, error) {
 	if err != nil {
 		return nil, fmt.Errorf("failed to parse embedded fixture JSON: %w", err)
 	}
+
+	vaultB64 := os.Getenv("VAULT_B64")
+	if vaultB64 != "" {
+		fixture.Vault.VaultB64 = vaultB64
+	}
+
+	serverVaultB64 := os.Getenv("SERVER_VAULT_B64")
+	if serverVaultB64 != "" {
+		fixture.Vault.ServerVaultB64 = serverVaultB64
+	}
+
 	return &fixture, nil
 }
 
@@ -52,13 +65,21 @@ func GetTestPlugins() []PluginConfig {
 		pluginEndpoint = "http://localhost:8082"
 	}
 
+	id := "vultisig-dca-0000"
+
+	apiKey := os.Getenv("PLUGIN_API_KEY")
+	if apiKey == "" {
+		apiKey = fmt.Sprintf("integration-test-apikey-%s", id)
+	}
+
 	return []PluginConfig{
 		{
-			ID:             "vultisig-dca-0000",
+			ID:             id,
 			Title:          "DCA (Dollar Cost Averaging)",
 			Description:    "Automated recurring swaps and transfers",
 			ServerEndpoint: pluginEndpoint,
 			Category:       "app",
+			APIKey:         apiKey,
 		},
 	}
 }

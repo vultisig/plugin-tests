@@ -1,0 +1,15 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: plugin-tests-prod
+  labels:
+    app.kubernetes.io/managed-by: plugin-tests
+    environment: prod
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: plugin-tests-dev
+  labels:
+    app.kubernetes.io/managed-by: plugin-tests
+    environment: dev

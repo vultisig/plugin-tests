@@ -73,6 +73,26 @@ func (c *TestClient) POST(path string, body interface{}) (*http.Response, error)
 	return c.httpClient.Do(req)
 }
 
+func (c *TestClient) DELETE(path string, body interface{}) (*http.Response, error) {
+	var bodyReader io.Reader
+	if body != nil {
+		jsonBody, err := json.Marshal(body)
+		if err != nil {
+			return nil, fmt.Errorf("failed to marshal request body: %w", err)
+		}
+		bodyReader = bytes.NewReader(jsonBody)
+	}
+
+	req, err := http.NewRequest(http.MethodDelete, c.baseURL+path, bodyReader)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Set("Content-Type", "application/json")
+	c.setAuthHeaders(req)
+	return c.httpClient.Do(req)
+}
+
 func (c *TestClient) setAuthHeaders(req *http.Request) {
 	if c.apiKey != "" {
 		req.Header.Set("Authorization", "Bearer "+c.apiKey)

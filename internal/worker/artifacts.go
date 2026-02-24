@@ -53,6 +53,13 @@ func (u *ArtifactUploader) UploadRunArtifacts(ctx context.Context, runID string,
 		}
 	}
 
+	if result.InstallLogs != "" {
+		err = u.upload(ctx, client, prefix+"/install.txt", result.InstallLogs)
+		if err != nil {
+			return prefix, fmt.Errorf("failed to upload install logs: %w", err)
+		}
+	}
+
 	return prefix, nil
 }
 

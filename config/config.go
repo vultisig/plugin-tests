@@ -69,6 +69,13 @@ type K8sJobConfig struct {
 	JWTSecret           string        `envconfig:"JWT_SECRET"`
 	PluginEndpoint      string        `envconfig:"PLUGIN_ENDPOINT"`
 	HostAliases         string        `envconfig:"HOST_ALIASES"`
+	PluginAPIKey        string        `envconfig:"PLUGIN_API_KEY"`
+	TestTargetAddress   string        `envconfig:"TEST_TARGET_ADDRESS"`
+	VaultB64            string        `envconfig:"VAULT_B64"`
+	ServerVaultB64      string        `envconfig:"SERVER_VAULT_B64"`
+	IngressDomain       string        `envconfig:"INGRESS_DOMAIN"`
+	TLSSecretName       string        `envconfig:"TLS_SECRET_NAME"`
+	SystemNamespace     string        `envconfig:"SYSTEM_NAMESPACE"`
 }
 
 type JanitorConfig struct {

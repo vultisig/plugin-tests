@@ -18,9 +18,12 @@ import (
 	"github.com/vultisig/plugin-tests/config"
 )
 
+const maxArtifactReadBytes = 2 << 20
+
 var allowedArtifacts = map[string]bool{
-	"seeder.txt": true,
-	"test.txt":   true,
+	"seeder.txt":  true,
+	"test.txt":    true,
+	"install.txt": true,
 }
 
 func (s *Server) handleGetArtifact(c echo.Context) error {
@@ -80,7 +83,7 @@ func readArtifact(ctx context.Context, cfg config.S3Config, key string) (string,
 	}
 	defer out.Body.Close()
 
-	data, err := io.ReadAll(io.LimitReader(out.Body, 2<<20))
+	data, err := io.ReadAll(io.LimitReader(out.Body, maxArtifactReadBytes))
 	if err != nil {
 		return "", fmt.Errorf("failed to read S3 object body: %w", err)
 	}

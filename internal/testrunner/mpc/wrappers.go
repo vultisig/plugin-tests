@@ -112,6 +112,73 @@ func (w *Wrapper) KeyshareFree(share Handle) error {
 	return session.DklsKeyshareFree(session.Handle(share))
 }
 
+func (w *Wrapper) SignSetupMsgNew(keyID, chainPath, messageHash, ids []byte) ([]byte, error) {
+	if w.isEdDSA {
+		return eddsaSession.SchnorrSignSetupMsgNew(keyID, chainPath, messageHash, ids)
+	}
+	return session.DklsSignSetupMsgNew(keyID, chainPath, messageHash, ids)
+}
+
+func (w *Wrapper) SignSessionFromSetup(setup, id []byte, keyshare Handle) (Handle, error) {
+	if w.isEdDSA {
+		h, err := eddsaSession.SchnorrSignSessionFromSetup(setup, id, eddsaSession.Handle(keyshare))
+		return Handle(h), err
+	}
+	h, err := session.DklsSignSessionFromSetup(setup, id, session.Handle(keyshare))
+	return Handle(h), err
+}
+
+func (w *Wrapper) SignSessionOutputMessage(h Handle) ([]byte, error) {
+	if w.isEdDSA {
+		return eddsaSession.SchnorrSignSessionOutputMessage(eddsaSession.Handle(h))
+	}
+	return session.DklsSignSessionOutputMessage(session.Handle(h))
+}
+
+func (w *Wrapper) SignSessionMessageReceiver(h Handle, message []byte, index int) (string, error) {
+	if w.isEdDSA {
+		b, err := eddsaSession.SchnorrSignSessionMessageReceiver(eddsaSession.Handle(h), message, uint32(index))
+		return string(b), err
+	}
+	b, err := session.DklsSignSessionMessageReceiver(session.Handle(h), message, index)
+	return string(b), err
+}
+
+func (w *Wrapper) SignSessionInputMessage(h Handle, message []byte) (bool, error) {
+	if w.isEdDSA {
+		return eddsaSession.SchnorrSignSessionInputMessage(eddsaSession.Handle(h), message)
+	}
+	return session.DklsSignSessionInputMessage(session.Handle(h), message)
+}
+
+func (w *Wrapper) SignSessionFinish(h Handle) ([]byte, error) {
+	if w.isEdDSA {
+		return eddsaSession.SchnorrSignSessionFinish(eddsaSession.Handle(h))
+	}
+	return session.DklsSignSessionFinish(session.Handle(h))
+}
+
+func (w *Wrapper) SignSessionFree(h Handle) error {
+	if w.isEdDSA {
+		return eddsaSession.SchnorrSignSessionFree(eddsaSession.Handle(h))
+	}
+	return session.DklsSignSessionFree(session.Handle(h))
+}
+
+func (w *Wrapper) KeyshareDeriveChildPublicKey(share Handle, derivePath []byte) ([]byte, error) {
+	if w.isEdDSA {
+		return nil, fmt.Errorf("derive child public key not supported for EdDSA")
+	}
+	return session.DklsKeyshareDeriveChildPublicKey(session.Handle(share), derivePath)
+}
+
+func (w *Wrapper) KeyshareKeyID(share Handle) ([]byte, error) {
+	if w.isEdDSA {
+		return eddsaSession.SchnorrKeyshareKeyID(eddsaSession.Handle(share))
+	}
+	return session.DklsKeyshareKeyID(session.Handle(share))
+}
+
 // DecodeDecryptMessage processes an inbound relay message.
 // Wire format: base64( gcm_encrypt( base64(raw_payload) ) )
 // Steps: base64 decode → AES-GCM decrypt → base64 decode → raw bytes
