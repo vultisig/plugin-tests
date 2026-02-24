@@ -3,6 +3,7 @@ package api
 import (
 	"errors"
 	"fmt"
+	"math"
 	"net/http"
 	"strconv"
 	"strings"
@@ -134,7 +135,7 @@ func (s *Server) handleListTestRuns(c echo.Context) error {
 	}
 	if v := c.QueryParam("offset"); v != "" {
 		parsed, err := strconv.Atoi(v)
-		if err != nil || parsed < 0 {
+		if err != nil || parsed < 0 || parsed > math.MaxInt32 {
 			return c.JSON(http.StatusBadRequest, ErrorResponse{Error: "invalid offset parameter"})
 		}
 		offset = parsed

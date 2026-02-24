@@ -108,6 +108,9 @@ func (s *Server) handleResultsList(c echo.Context) error {
 		if page < 1 {
 			page = 1
 		}
+		if page > math.MaxInt32/perPage {
+			page = math.MaxInt32 / perPage
+		}
 	}
 	offset := (page - 1) * perPage
 
