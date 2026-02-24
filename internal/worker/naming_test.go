@@ -122,9 +122,9 @@ func TestSeederJobName(t *testing.T) {
 	assert.LessOrEqual(t, len(result), maxDNSLabelLen)
 }
 
-func TestTestJobName(t *testing.T) {
-	result := testJobName("550e8400-e29b-41d4-a716-446655440000")
-	assert.Equal(t, "test-550e8400e29b", result)
+func TestSmokeJobName(t *testing.T) {
+	result := smokeJobName("550e8400-e29b-41d4-a716-446655440000")
+	assert.Equal(t, "smoke-550e8400e29b", result)
 	assert.LessOrEqual(t, len(result), maxDNSLabelLen)
 }
 

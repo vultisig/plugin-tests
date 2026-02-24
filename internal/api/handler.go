@@ -2,6 +2,7 @@ package api
 
 import (
 	"errors"
+	"fmt"
 	"net/http"
 	"strconv"
 	"strings"
@@ -139,7 +140,10 @@ func (s *Server) handleListTestRuns(c echo.Context) error {
 		offset = parsed
 	}
 
-	filterParams := buildFilterParams(c)
+	filterParams, err := buildFilterParams(c)
+	if err != nil {
+		return c.JSON(http.StatusBadRequest, ErrorResponse{Error: err.Error()})
+	}
 
 	ctx := c.Request().Context()
 
@@ -181,16 +185,27 @@ type filterParams struct {
 	Status   queries.NullTestRunStatus
 }
 
-func buildFilterParams(c echo.Context) filterParams {
+var validStatuses = map[string]bool{
+	"QUEUED":  true,
+	"RUNNING": true,
+	"PASSED":  true,
+	"FAILED":  true,
+	"ERROR":   true,
+}
+
+func buildFilterParams(c echo.Context) (filterParams, error) {
 	var fp filterParams
 	if v := strings.TrimSpace(c.QueryParam("plugin_id")); v != "" {
 		fp.PluginID = pgtype.Text{String: v, Valid: true}
 	}
 	if v := strings.TrimSpace(c.QueryParam("status")); v != "" {
+		if !validStatuses[v] {
+			return fp, fmt.Errorf("invalid status: %s", v)
+		}
 		fp.Status = queries.NullTestRunStatus{
 			TestRunStatus: queries.TestRunStatus(v),
 			Valid:         true,
 		}
 	}
-	return fp
+	return fp, nil
 }

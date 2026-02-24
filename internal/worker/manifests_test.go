@@ -158,13 +158,13 @@ func TestSeederJob(t *testing.T) {
 	assert.Equal(t, int32(300), *job.Spec.TTLSecondsAfterFinished)
 }
 
-func TestTestJob(t *testing.T) {
+func TestSmokeJob(t *testing.T) {
 	envVars := testrunnerEnvVars(testK8sCfg)
-	job := testJob("ns", "testrunner:v1", "my-secret", nil, envVars, 0, nil)
+	job := smokeJob("ns", "testrunner:v1", "my-secret", nil, envVars, 0, nil)
 
-	assert.Equal(t, "test", job.Name)
+	assert.Equal(t, "smoke", job.Name)
 	require.Len(t, job.Spec.Template.Spec.Containers, 1)
-	assert.Equal(t, []string{"test"}, job.Spec.Template.Spec.Containers[0].Args)
+	assert.Equal(t, []string{"smoke"}, job.Spec.Template.Spec.Containers[0].Args)
 	assert.Nil(t, job.Spec.TTLSecondsAfterFinished)
 	require.Len(t, job.Spec.Template.Spec.ImagePullSecrets, 1)
 }

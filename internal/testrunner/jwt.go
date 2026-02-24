@@ -18,6 +18,9 @@ func GenerateJWT(secret, pubkey, tokenID string, expireHours int) (string, error
 	if secret == "" || pubkey == "" {
 		return "", fmt.Errorf("secret and pubkey are required")
 	}
+	if expireHours <= 0 {
+		return "", fmt.Errorf("expireHours must be > 0")
+	}
 
 	expirationTime := time.Now().Add(time.Duration(expireHours) * time.Hour)
 	claims := &Claims{

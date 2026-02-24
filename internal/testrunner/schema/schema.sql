@@ -36,7 +36,7 @@ CREATE TABLE vault_tokens (
 CREATE TABLE plugin_policies (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     public_key TEXT NOT NULL,
-    plugin_id plugin_id NOT NULL,
+    plugin_id plugin_id NOT NULL REFERENCES plugins(id) ON DELETE CASCADE,
     plugin_version TEXT NOT NULL,
     policy_version INTEGER NOT NULL,
     signature TEXT NOT NULL,

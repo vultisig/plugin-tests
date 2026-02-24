@@ -111,6 +111,9 @@ func (s *TestSuite) healthChecks() bool {
 			return fmt.Errorf("plugin unreachable: %w", err)
 		}
 		defer resp.Body.Close()
+		if resp.StatusCode < 200 || resp.StatusCode >= 300 {
+			return fmt.Errorf("expected 2xx, got %d", resp.StatusCode)
+		}
 		return nil
 	})
 
@@ -241,6 +244,9 @@ func (s *TestSuite) pluginEndpointTests() bool {
 				return fmt.Errorf("plugin unreachable: %w", err)
 			}
 			defer resp.Body.Close()
+			if resp.StatusCode < 200 || resp.StatusCode >= 300 {
+				return fmt.Errorf("expected 2xx, got %d", resp.StatusCode)
+			}
 			return nil
 		})
 
@@ -250,6 +256,9 @@ func (s *TestSuite) pluginEndpointTests() bool {
 				return fmt.Errorf("plugin unreachable: %w", err)
 			}
 			defer resp.Body.Close()
+			if resp.StatusCode < 200 || resp.StatusCode >= 300 {
+				return fmt.Errorf("expected 2xx, got %d", resp.StatusCode)
+			}
 			return nil
 		})
 
@@ -259,6 +268,9 @@ func (s *TestSuite) pluginEndpointTests() bool {
 				return fmt.Errorf("plugin unreachable: %w", err)
 			}
 			defer resp.Body.Close()
+			if resp.StatusCode < 200 || resp.StatusCode >= 300 {
+				return fmt.Errorf("expected 2xx, got %d", resp.StatusCode)
+			}
 			return nil
 		})
 	}
