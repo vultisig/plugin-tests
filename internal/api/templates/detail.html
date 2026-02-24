@@ -58,14 +58,21 @@
 </div>
 {{end}}
 
-{{if .TestLogs}}
+{{if .SmokeLogs}}
 <div class="log-panel">
-  <h3>Test Logs</h3>
-  <pre>{{.TestLogs}}</pre>
+  <h3>Smoke Logs</h3>
+  <pre>{{.SmokeLogs}}</pre>
 </div>
 {{end}}
 
-{{if and (not .SeederLogs) (not .TestLogs)}}
+{{if .IntegrationLogs}}
+<div class="log-panel">
+  <h3>Integration Logs</h3>
+  <pre>{{.IntegrationLogs}}</pre>
+</div>
+{{end}}
+
+{{if and (not .SeederLogs) (not .SmokeLogs) (not .IntegrationLogs)}}
 <div class="empty">No artifacts available for this run.</div>
 {{end}}
 {{end}}

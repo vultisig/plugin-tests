@@ -13,7 +13,6 @@ import (
 	"net/http"
 	"slices"
 	"sync"
-	"sync/atomic"
 	"time"
 
 	"github.com/google/uuid"
@@ -490,9 +489,8 @@ func processQcInbound(
 	wrapper *mpc.Wrapper,
 	logger logrus.FieldLogger,
 ) (string, string, []byte, error) {
-	var processedInitiatorMsg atomic.Bool
-	processedInitiatorMsg.Store(false)
-	var messageCache sync.Map
+	processedInitiatorMsg := false
+	messageCache := make(map[string]bool)
 	relayClient := vgrelay.NewRelayClient(relayURL)
 	start := time.Now()
 
@@ -514,15 +512,15 @@ func processQcInbound(
 			}
 
 			cacheKey := fmt.Sprintf("%s-%s-%s", sessionID, localPartyID, message.Hash)
-			if _, found := messageCache.Load(cacheKey); found {
+			if messageCache[cacheKey] {
 				continue
 			}
 
-			if localPartyID != parties[0] && !processedInitiatorMsg.Load() && message.From != parties[0] {
+			if localPartyID != parties[0] && !processedInitiatorMsg && message.From != parties[0] {
 				logger.Debug("waiting for message from initiator party")
 				continue
 			}
-			processedInitiatorMsg.Store(true)
+			processedInitiatorMsg = true
 
 			inboundBody, decErr := mpc.DecodeDecryptMessage(message.Body, hexEncKey)
 			if decErr != nil {
@@ -536,7 +534,7 @@ func processQcInbound(
 				continue
 			}
 
-			messageCache.Store(cacheKey, true)
+			messageCache[cacheKey] = true
 
 			logger.WithFields(logrus.Fields{
 				"hash": message.Hash,

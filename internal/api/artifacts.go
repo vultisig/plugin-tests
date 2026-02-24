@@ -2,6 +2,7 @@ package api
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -21,9 +22,9 @@ import (
 const maxArtifactReadBytes = 2 << 20
 
 var allowedArtifacts = map[string]bool{
-	"seeder.txt":  true,
-	"test.txt":    true,
-	"install.txt": true,
+	"seeder.txt":      true,
+	"smoke.txt":       true,
+	"integration.txt": true,
 }
 
 func (s *Server) handleGetArtifact(c echo.Context) error {
@@ -41,7 +42,7 @@ func (s *Server) handleGetArtifact(c echo.Context) error {
 	pgID := pgtype.UUID{Bytes: parsed, Valid: true}
 	run, err := s.db.Queries().GetTestRun(c.Request().Context(), pgID)
 	if err != nil {
-		if err == pgx.ErrNoRows {
+		if errors.Is(err, pgx.ErrNoRows) {
 			return c.JSON(http.StatusNotFound, ErrorResponse{Error: "test run not found"})
 		}
 		s.logger.WithError(err).Error("failed to get test run")

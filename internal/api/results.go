@@ -2,6 +2,7 @@ package api
 
 import (
 	"embed"
+	"errors"
 	"fmt"
 	"html/template"
 	"math"
@@ -94,9 +95,10 @@ type listPageData struct {
 }
 
 type detailPageData struct {
-	Run        types.TestRun
-	SeederLogs string
-	TestLogs   string
+	Run             types.TestRun
+	SeederLogs      string
+	SmokeLogs       string
+	IntegrationLogs string
 }
 
 func (s *Server) handleResultsList(c echo.Context) error {
@@ -187,7 +189,7 @@ func (s *Server) handleResultsDetail(c echo.Context) error {
 
 	run, err := s.db.Queries().GetTestRun(ctx, pgID)
 	if err != nil {
-		if err == pgx.ErrNoRows {
+		if errors.Is(err, pgx.ErrNoRows) {
 			return c.String(http.StatusNotFound, "test run not found")
 		}
 		s.logger.WithError(err).Error("failed to get test run")
@@ -196,17 +198,19 @@ func (s *Server) handleResultsDetail(c echo.Context) error {
 
 	result := types.TestRunFromQuery(run)
 
-	var seederLogs, testLogs string
+	var seederLogs, smokeLogs, integrationLogs string
 	if run.ArtifactPrefix.Valid && run.ArtifactPrefix.String != "" && s.artifactS3.Bucket != "" {
 		prefix := run.ArtifactPrefix.String
 		seederLogs, _ = readArtifact(ctx, s.artifactS3, prefix+"/seeder.txt")
-		testLogs, _ = readArtifact(ctx, s.artifactS3, prefix+"/test.txt")
+		smokeLogs, _ = readArtifact(ctx, s.artifactS3, prefix+"/smoke.txt")
+		integrationLogs, _ = readArtifact(ctx, s.artifactS3, prefix+"/integration.txt")
 	}
 
 	data := detailPageData{
-		Run:        result,
-		SeederLogs: seederLogs,
-		TestLogs:   testLogs,
+		Run:             result,
+		SeederLogs:      seederLogs,
+		SmokeLogs:       smokeLogs,
+		IntegrationLogs: integrationLogs,
 	}
 
 	return renderHTML(c, detailTmpl, data)

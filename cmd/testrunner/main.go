@@ -16,16 +16,16 @@ func main() {
 	logger.SetFormatter(&logrus.TextFormatter{FullTimestamp: true})
 
 	if len(os.Args) < 2 {
-		logger.Fatal("usage: testrunner <seed|test|install>")
+		logger.Fatal("usage: testrunner <seed|smoke|integration>")
 	}
 
 	switch os.Args[1] {
 	case "seed":
 		runSeed()
-	case "test":
-		runTest()
-	case "install":
-		runInstall()
+	case "smoke":
+		runSmoke()
+	case "integration":
+		runIntegration()
 	default:
 		logger.Fatalf("unknown command: %s", os.Args[1])
 	}
@@ -70,7 +70,7 @@ func runSeed() {
 	logger.Info("seeding completed successfully")
 }
 
-func runTest() {
+func runSmoke() {
 	fixture, err := testrunner.LoadFixture()
 	if err != nil {
 		logger.WithError(err).Fatal("failed to load fixture")
@@ -120,7 +120,7 @@ func runTest() {
 	}).Info("all tests passed")
 }
 
-func runInstall() {
+func runIntegration() {
 	fixture, err := testrunner.LoadFixture()
 	if err != nil {
 		logger.WithError(err).Fatal("failed to load fixture")

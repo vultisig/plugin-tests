@@ -26,12 +26,12 @@ type Runner struct {
 }
 
 type RunResult struct {
-	Passed       bool
-	SeederLogs   string
-	TestLogs     string
-	InstallLogs  string
-	VerifierHost string
-	ErrorMsg     string
+	Passed          bool
+	SeederLogs      string
+	SmokeLogs       string
+	IntegrationLogs string
+	VerifierHost    string
+	ErrorMsg        string
 }
 
 func NewRunner(k8s kubernetes.Interface, cfg config.K8sJobConfig, logger *logrus.Entry) *Runner {
@@ -95,30 +95,30 @@ func (r *Runner) Run(ctx context.Context, namespace, runID, pluginID string, lab
 		return result
 	}
 
-	testLogs, testPassed, err := r.runTestJob(ctx, namespace, runID, labels)
-	result.TestLogs = testLogs
+	smokeLogs, smokePassed, err := r.runSmokeJob(ctx, namespace, runID, labels)
+	result.SmokeLogs = smokeLogs
 	if err != nil {
-		result.ErrorMsg = fmt.Sprintf("test job failed: %s", err.Error())
+		result.ErrorMsg = fmt.Sprintf("smoke job failed: %s", err.Error())
 		return result
 	}
 
-	if !testPassed {
+	if !smokePassed {
 		result.Passed = false
 		return result
 	}
 
 	if r.cfg.PluginEndpoint != "" {
-		var installPassed bool
-		result.InstallLogs, installPassed, err = r.runInstallJob(ctx, namespace, runID, pluginID, labels)
+		var integrationPassed bool
+		result.IntegrationLogs, integrationPassed, err = r.runIntegrationJob(ctx, namespace, runID, pluginID, labels)
 		if err != nil {
-			result.ErrorMsg = fmt.Sprintf("install job failed: %s", err.Error())
+			result.ErrorMsg = fmt.Sprintf("integration job failed: %s", err.Error())
 			return result
 		}
-		result.Passed = installPassed
+		result.Passed = integrationPassed
 		return result
 	}
 
-	result.Passed = testPassed
+	result.Passed = smokePassed
 	return result
 }
 
@@ -309,53 +309,53 @@ func (r *Runner) runSeederJob(ctx context.Context, ns, runID string, labels map[
 	return logs, nil
 }
 
-func (r *Runner) runTestJob(ctx context.Context, ns, runID string, labels map[string]string) (string, bool, error) {
+func (r *Runner) runSmokeJob(ctx context.Context, ns, runID string, labels map[string]string) (string, bool, error) {
 	envVars := testrunnerEnvVars(r.cfg)
-	name := testJobName(runID)
+	name := smokeJobName(runID)
 	hostAliases := parseHostAliases(r.cfg.HostAliases)
-	job := testJob(ns, r.cfg.TestImage, r.cfg.ImagePullSecret, labels, envVars, r.cfg.TTLAfterFinished, hostAliases)
+	job := smokeJob(ns, r.cfg.TestImage, r.cfg.ImagePullSecret, labels, envVars, r.cfg.TTLAfterFinished, hostAliases)
 	job.Name = name
 
-	r.logger.WithField("job", name).Info("running tests")
+	r.logger.WithField("job", name).Info("running smoke tests")
 	_, err := applyJob(ctx, r.k8s, job)
 	if err != nil {
-		return "", false, fmt.Errorf("create test job: %w", err)
+		return "", false, fmt.Errorf("create smoke job: %w", err)
 	}
 
 	passed, err := waitForJob(ctx, r.k8s, ns, name, r.timeout(10*time.Minute), r.pollInterval())
 	if err != nil {
-		return "", false, fmt.Errorf("wait for test: %w", err)
+		return "", false, fmt.Errorf("wait for smoke: %w", err)
 	}
 
 	logs, logErr := fetchJobLogsByContainer(ctx, r.k8s, ns, name, "testrunner", 3, 2*time.Second)
 	if logErr != nil {
-		r.logger.WithError(logErr).Warn("failed to fetch test logs")
+		r.logger.WithError(logErr).Warn("failed to fetch smoke logs")
 	}
 
 	return logs, passed, nil
 }
 
-func (r *Runner) runInstallJob(ctx context.Context, ns, runID, pluginID string, labels map[string]string) (string, bool, error) {
-	envVars := installJobEnvVars(r.cfg, pluginID)
-	name := installJobName(runID)
+func (r *Runner) runIntegrationJob(ctx context.Context, ns, runID, pluginID string, labels map[string]string) (string, bool, error) {
+	envVars := integrationJobEnvVars(r.cfg, pluginID)
+	name := integrationJobName(runID)
 	hostAliases := parseHostAliases(r.cfg.HostAliases)
-	job := installJob(ns, r.cfg.TestImage, r.cfg.ImagePullSecret, labels, envVars, r.cfg.TTLAfterFinished, hostAliases)
+	job := integrationJob(ns, r.cfg.TestImage, r.cfg.ImagePullSecret, labels, envVars, r.cfg.TTLAfterFinished, hostAliases)
 	job.Name = name
 
-	r.logger.WithField("job", name).Info("running install")
+	r.logger.WithField("job", name).Info("running integration")
 	_, err := applyJob(ctx, r.k8s, job)
 	if err != nil {
-		return "", false, fmt.Errorf("create install job: %w", err)
+		return "", false, fmt.Errorf("create integration job: %w", err)
 	}
 
 	passed, err := waitForJob(ctx, r.k8s, ns, name, r.timeout(10*time.Minute), r.pollInterval())
 	if err != nil {
-		return "", false, fmt.Errorf("wait for install: %w", err)
+		return "", false, fmt.Errorf("wait for integration: %w", err)
 	}
 
 	logs, err := fetchJobLogsByContainer(ctx, r.k8s, ns, name, "testrunner", 3, 2*time.Second)
 	if err != nil {
-		r.logger.WithError(err).Warn("failed to fetch install logs")
+		r.logger.WithError(err).Warn("failed to fetch integration logs")
 	}
 
 	return logs, passed, nil

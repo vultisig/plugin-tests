@@ -457,12 +457,12 @@ func seederJob(ns, image, pullSecret string, labels map[string]string, envVars [
 	return buildTestJob("seeder", ns, image, pullSecret, labels, []string{"seed"}, envVars, ttlSeconds, hostAliases)
 }
 
-func testJob(ns, image, pullSecret string, labels map[string]string, envVars []corev1.EnvVar, ttlSeconds int32, hostAliases []corev1.HostAlias) *batchv1.Job {
-	return buildTestJob("test", ns, image, pullSecret, labels, []string{"test"}, envVars, ttlSeconds, hostAliases)
+func smokeJob(ns, image, pullSecret string, labels map[string]string, envVars []corev1.EnvVar, ttlSeconds int32, hostAliases []corev1.HostAlias) *batchv1.Job {
+	return buildTestJob("smoke", ns, image, pullSecret, labels, []string{"smoke"}, envVars, ttlSeconds, hostAliases)
 }
 
-func installJob(ns, image, pullSecret string, labels map[string]string, envVars []corev1.EnvVar, ttlSeconds int32, hostAliases []corev1.HostAlias) *batchv1.Job {
-	return buildTestJob("install", ns, image, pullSecret, labels, []string{"install"}, envVars, ttlSeconds, hostAliases)
+func integrationJob(ns, image, pullSecret string, labels map[string]string, envVars []corev1.EnvVar, ttlSeconds int32, hostAliases []corev1.HostAlias) *batchv1.Job {
+	return buildTestJob("integration", ns, image, pullSecret, labels, []string{"integration"}, envVars, ttlSeconds, hostAliases)
 }
 
 func buildTestJob(name, ns, image, pullSecret string, labels map[string]string, args []string, envVars []corev1.EnvVar, ttlSeconds int32, hostAliases []corev1.HostAlias) *batchv1.Job {
@@ -531,7 +531,7 @@ func testrunnerEnvVars(cfg config.K8sJobConfig) []corev1.EnvVar {
 	return vars
 }
 
-func installJobEnvVars(cfg config.K8sJobConfig, pluginID string) []corev1.EnvVar {
+func integrationJobEnvVars(cfg config.K8sJobConfig, pluginID string) []corev1.EnvVar {
 	vars := testrunnerEnvVars(cfg)
 	vars = append(vars,
 		corev1.EnvVar{Name: "RELAY_URL", Value: "https://api.vultisig.com/router"},

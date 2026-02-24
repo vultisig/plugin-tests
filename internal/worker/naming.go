@@ -42,12 +42,12 @@ func seederJobName(runID string) string {
 	return dnsLabel("seeder-" + runIDPrefix(runID))
 }
 
-func testJobName(runID string) string {
-	return dnsLabel("test-" + runIDPrefix(runID))
+func smokeJobName(runID string) string {
+	return dnsLabel("smoke-" + runIDPrefix(runID))
 }
 
-func installJobName(runID string) string {
-	return dnsLabel("install-" + runIDPrefix(runID))
+func integrationJobName(runID string) string {
+	return dnsLabel("integration-" + runIDPrefix(runID))
 }
 
 func runLabels(runID, pluginID, kind string) map[string]string {

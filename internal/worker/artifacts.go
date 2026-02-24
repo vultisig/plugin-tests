@@ -46,17 +46,17 @@ func (u *ArtifactUploader) UploadRunArtifacts(ctx context.Context, runID string,
 		}
 	}
 
-	if result.TestLogs != "" {
-		err = u.upload(ctx, client, prefix+"/test.txt", result.TestLogs)
+	if result.SmokeLogs != "" {
+		err = u.upload(ctx, client, prefix+"/smoke.txt", result.SmokeLogs)
 		if err != nil {
-			return prefix, fmt.Errorf("failed to upload test logs: %w", err)
+			return prefix, fmt.Errorf("failed to upload smoke logs: %w", err)
 		}
 	}
 
-	if result.InstallLogs != "" {
-		err = u.upload(ctx, client, prefix+"/install.txt", result.InstallLogs)
+	if result.IntegrationLogs != "" {
+		err = u.upload(ctx, client, prefix+"/integration.txt", result.IntegrationLogs)
 		if err != nil {
-			return prefix, fmt.Errorf("failed to upload install logs: %w", err)
+			return prefix, fmt.Errorf("failed to upload integration logs: %w", err)
 		}
 	}
 
