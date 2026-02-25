@@ -1,0 +1,81 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: worker
+  namespace: plugin-tests-system
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: worker
+  template:
+    metadata:
+      labels:
+        app: worker
+    spec:
+      serviceAccountName: plugin-tests-worker
+      containers:
+        - name: worker
+          image: plugin-tests-worker:latest
+          imagePullPolicy: IfNotPresent
+          command: ["/app/main"]
+          env:
+            - name: PLUGIN_TESTS_WORKER_DATABASE_DSN
+              value: "postgres://vultisig:vultisig@postgres:5432/plugin-tests?sslmode=disable"
+            - name: PLUGIN_TESTS_WORKER_QUEUE_REDIS_HOST
+              value: redis
+            - name: PLUGIN_TESTS_WORKER_QUEUE_REDIS_PORT
+              value: "6379"
+            - name: PLUGIN_TESTS_WORKER_CONCURRENCY
+              value: "1"
+            - name: PLUGIN_TESTS_WORKER_HEALTH_PORT
+              value: "8081"
+            - name: PLUGIN_TESTS_WORKER_K8S_VERIFIER_IMAGE
+              value: verifier-verifier:latest
+            - name: PLUGIN_TESTS_WORKER_K8S_VERIFIER_WORKER_IMAGE
+              value: verifier-worker:latest
+            - name: PLUGIN_TESTS_WORKER_K8S_TEST_IMAGE
+              value: plugin-tests-testrunner:latest
+            - name: PLUGIN_TESTS_WORKER_K8S_ENCRYPTION_SECRET
+              value: "Saggy@Commotion@Occupier@Registry1"
+            - name: PLUGIN_TESTS_WORKER_K8S_JWT_SECRET
+              value: mysecret
+            - name: PLUGIN_TESTS_WORKER_K8S_PLUGIN_ENDPOINT
+              value: "http://host.minikube.internal:8082"
+            - name: PLUGIN_TESTS_WORKER_K8S_PLUGIN_API_KEY
+              value: "localhost-dca-apikey-swap"
+            - name: PLUGIN_TESTS_WORKER_K8S_TEST_TARGET_ADDRESS
+              value: "0x742d35Cc6634C0532925a3b844Bc9e7595f0bEb0"
+            - name: PLUGIN_TESTS_WORKER_K8S_VAULT_B64
+              value: ""
+            - name: PLUGIN_TESTS_WORKER_K8S_SERVER_VAULT_B64
+              value: ""
+            - name: PLUGIN_TESTS_WORKER_K8S_INGRESS_DOMAIN
+              value: "test.plugins.vultisig.com"
+            - name: PLUGIN_TESTS_WORKER_K8S_HOST_ALIASES
+              value: "host.minikube.internal=192.168.65.254"
+            - name: PLUGIN_TESTS_WORKER_ARTIFACT_S3_ENDPOINT
+              value: "http://minio:9000"
+            - name: PLUGIN_TESTS_WORKER_ARTIFACT_S3_REGION
+              value: "us-east-1"
+            - name: PLUGIN_TESTS_WORKER_ARTIFACT_S3_ACCESS_KEY
+              value: "minioadmin"
+            - name: PLUGIN_TESTS_WORKER_ARTIFACT_S3_SECRET_KEY
+              value: "minioadmin"
+            - name: PLUGIN_TESTS_WORKER_ARTIFACT_S3_BUCKET
+              value: "plugin-tests-artifacts"
+          ports:
+            - containerPort: 8081
+          readinessProbe:
+            httpGet:
+              path: /healthz
+              port: 8081
+            initialDelaySeconds: 5
+            periodSeconds: 5
+          resources:
+            limits:
+              cpu: 250m
+              memory: 256Mi
+            requests:
+              cpu: 100m
+              memory: 128Mi

@@ -1,0 +1,25 @@
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: wildcard-test-plugins
+  namespace: plugin-tests-prod
+spec:
+  secretName: wildcard-test-plugins-tls
+  issuerRef:
+    name: letsencrypt-prod
+    kind: ClusterIssuer
+  dnsNames:
+    - "*.test.plugins.vultisig.com"
+---
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: wildcard-test-plugins
+  namespace: plugin-tests-dev
+spec:
+  secretName: wildcard-test-plugins-tls
+  issuerRef:
+    name: letsencrypt-prod
+    kind: ClusterIssuer
+  dnsNames:
+    - "*.test-dev.plugins.vultisig.com"

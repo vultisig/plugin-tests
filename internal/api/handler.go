@@ -2,6 +2,8 @@ package api
 
 import (
 	"errors"
+	"fmt"
+	"math"
 	"net/http"
 	"strconv"
 	"strings"
@@ -19,10 +21,12 @@ import (
 const defaultSuite = "integration"
 
 type CreateTestRunRequest struct {
-	PluginID    string `json:"plugin_id"`
-	ProposalID  string `json:"proposal_id,omitempty"`
-	Version     string `json:"version,omitempty"`
-	RequestedBy string `json:"requested_by"`
+	PluginID       string `json:"plugin_id"`
+	ProposalID     string `json:"proposal_id,omitempty"`
+	Version        string `json:"version,omitempty"`
+	RequestedBy    string `json:"requested_by"`
+	PluginEndpoint string `json:"plugin_endpoint,omitempty"`
+	PluginAPIKey   string `json:"plugin_api_key,omitempty"`
 }
 
 func (s *Server) handleCreateTestRun(c echo.Context) error {
@@ -67,12 +71,14 @@ func (s *Server) handleCreateTestRun(c echo.Context) error {
 	result := types.TestRunFromQuery(run)
 
 	payload := queue.TestRunPayload{
-		RunID:       result.ID.String(),
-		PluginID:    req.PluginID,
-		ProposalID:  req.ProposalID,
-		Version:     req.Version,
-		Suite:       defaultSuite,
-		RequestedBy: req.RequestedBy,
+		RunID:          result.ID.String(),
+		PluginID:       req.PluginID,
+		ProposalID:     req.ProposalID,
+		Version:        req.Version,
+		Suite:          defaultSuite,
+		RequestedBy:    req.RequestedBy,
+		PluginEndpoint: strings.TrimSpace(req.PluginEndpoint),
+		PluginAPIKey:   strings.TrimSpace(req.PluginAPIKey),
 	}
 
 	_, err = s.producer.EnqueueTestRun(payload)
@@ -129,24 +135,34 @@ func (s *Server) handleListTestRuns(c echo.Context) error {
 	}
 	if v := c.QueryParam("offset"); v != "" {
 		parsed, err := strconv.Atoi(v)
-		if err != nil || parsed < 0 {
+		if err != nil || parsed < 0 || parsed > math.MaxInt32 {
 			return c.JSON(http.StatusBadRequest, ErrorResponse{Error: "invalid offset parameter"})
 		}
 		offset = parsed
 	}
 
+	filterParams, err := buildFilterParams(c)
+	if err != nil {
+		return c.JSON(http.StatusBadRequest, ErrorResponse{Error: err.Error()})
+	}
+
 	ctx := c.Request().Context()
 
 	runs, err := s.db.Queries().ListTestRuns(ctx, &queries.ListTestRunsParams{
-		Limit:  int32(limit),
-		Offset: int32(offset),
+		PluginID:    filterParams.PluginID,
+		Status:      filterParams.Status,
+		QueryLimit:  int32(limit),
+		QueryOffset: int32(offset),
 	})
 	if err != nil {
 		s.logger.WithError(err).Error("failed to list test runs")
 		return c.JSON(http.StatusInternalServerError, ErrorResponse{Error: "failed to list test runs"})
 	}
 
-	total, err := s.db.Queries().CountTestRuns(ctx)
+	total, err := s.db.Queries().CountTestRuns(ctx, &queries.CountTestRunsParams{
+		PluginID: filterParams.PluginID,
+		Status:   filterParams.Status,
+	})
 	if err != nil {
 		s.logger.WithError(err).Error("failed to count test runs")
 		return c.JSON(http.StatusInternalServerError, ErrorResponse{Error: "failed to count test runs"})
@@ -163,4 +179,34 @@ func (s *Server) handleListTestRuns(c echo.Context) error {
 		Limit:  limit,
 		Offset: offset,
 	})
+}
+
+type filterParams struct {
+	PluginID pgtype.Text
+	Status   queries.NullTestRunStatus
+}
+
+var validStatuses = map[string]bool{
+	"QUEUED":  true,
+	"RUNNING": true,
+	"PASSED":  true,
+	"FAILED":  true,
+	"ERROR":   true,
+}
+
+func buildFilterParams(c echo.Context) (filterParams, error) {
+	var fp filterParams
+	if v := strings.TrimSpace(c.QueryParam("plugin_id")); v != "" {
+		fp.PluginID = pgtype.Text{String: v, Valid: true}
+	}
+	if v := strings.TrimSpace(c.QueryParam("status")); v != "" {
+		if !validStatuses[v] {
+			return fp, fmt.Errorf("invalid status: %s", v)
+		}
+		fp.Status = queries.NullTestRunStatus{
+			TestRunStatus: queries.TestRunStatus(v),
+			Valid:         true,
+		}
+	}
+	return fp, nil
 }

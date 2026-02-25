@@ -1,0 +1,78 @@
+{{define "title"}}Run {{.Run.ID}}{{end}}
+
+{{define "content"}}
+<p style="margin-bottom: 16px;"><a href="/results">&larr; Back to results</a></p>
+
+<div class="card">
+  <h2>
+    <span class="badge badge-{{lower .Run.Status}}">{{.Run.Status}}</span>
+    {{.Run.PluginID}}
+  </h2>
+  <dl class="meta">
+    <div>
+      <dt>Run ID</dt>
+      <dd>{{.Run.ID}}</dd>
+    </div>
+    <div>
+      <dt>Requested By</dt>
+      <dd>{{.Run.RequestedBy}}</dd>
+    </div>
+    <div>
+      <dt>Created</dt>
+      <dd>{{formatTime .Run.CreatedAt}}</dd>
+    </div>
+    <div>
+      <dt>Started</dt>
+      <dd>{{if .Run.StartedAt}}{{formatTimePtr .Run.StartedAt}}{{else}}-{{end}}</dd>
+    </div>
+    <div>
+      <dt>Finished</dt>
+      <dd>{{if .Run.FinishedAt}}{{formatTimePtr .Run.FinishedAt}}{{else}}-{{end}}</dd>
+    </div>
+    <div>
+      <dt>Duration</dt>
+      <dd>{{duration .Run.StartedAt .Run.FinishedAt}}</dd>
+    </div>
+    {{if .Run.Version}}
+    <div>
+      <dt>Version</dt>
+      <dd>{{deref .Run.Version}}</dd>
+    </div>
+    {{end}}
+    {{if .Run.ProposalID}}
+    <div>
+      <dt>Proposal ID</dt>
+      <dd>{{deref .Run.ProposalID}}</dd>
+    </div>
+    {{end}}
+  </dl>
+  {{if .Run.ErrorMessage}}
+  <div class="error-msg">{{deref .Run.ErrorMessage}}</div>
+  {{end}}
+</div>
+
+{{if .SeederLogs}}
+<div class="log-panel">
+  <h3>Seeder Logs</h3>
+  <pre>{{.SeederLogs}}</pre>
+</div>
+{{end}}
+
+{{if .SmokeLogs}}
+<div class="log-panel">
+  <h3>Smoke Logs</h3>
+  <pre>{{.SmokeLogs}}</pre>
+</div>
+{{end}}
+
+{{if .IntegrationLogs}}
+<div class="log-panel">
+  <h3>Integration Logs</h3>
+  <pre>{{.IntegrationLogs}}</pre>
+</div>
+{{end}}
+
+{{if and (not .SeederLogs) (not .SmokeLogs) (not .IntegrationLogs)}}
+<div class="empty">No artifacts available for this run.</div>
+{{end}}
+{{end}}

@@ -2,25 +2,30 @@ package config
 
 import (
 	"fmt"
+	"os"
+	"time"
 
 	"github.com/kelseyhightower/envconfig"
 )
 
 type APIConfig struct {
-	LogFormat  string       `envconfig:"LOG_FORMAT"`
-	Server     ServerConfig `envconfig:"SERVER"`
-	Database   DatabaseConfig
-	QueueRedis RedisConfig `envconfig:"QUEUE_REDIS"`
+	LogFormat  string         `envconfig:"LOG_FORMAT"`
+	Server     ServerConfig   `envconfig:"SERVER"`
+	Database   DatabaseConfig `envconfig:"DATABASE"`
+	QueueRedis RedisConfig    `envconfig:"QUEUE_REDIS"`
+	ArtifactS3 S3Config       `envconfig:"ARTIFACT_S3"`
 }
 
 type WorkerConfig struct {
-	LogFormat  string `envconfig:"LOG_FORMAT"`
-	Database   DatabaseConfig
-	QueueRedis RedisConfig `envconfig:"QUEUE_REDIS"`
-	Kubernetes K8sConfig   `envconfig:"KUBERNETES"`
-	ArtifactS3 S3Config    `envconfig:"ARTIFACT_S3"`
-	Janitor    JanitorConfig
-	HealthPort int `envconfig:"HEALTH_PORT"`
+	LogFormat   string         `envconfig:"LOG_FORMAT"`
+	Concurrency int            `envconfig:"CONCURRENCY"`
+	KubeConfig  string         `envconfig:"KUBECONFIG"`
+	HealthPort  int            `envconfig:"HEALTH_PORT"`
+	Database    DatabaseConfig `envconfig:"DATABASE"`
+	QueueRedis  RedisConfig    `envconfig:"QUEUE_REDIS"`
+	K8sJob      K8sJobConfig   `envconfig:"K8S"`
+	ArtifactS3  S3Config       `envconfig:"ARTIFACT_S3"`
+	Janitor     JanitorConfig  `envconfig:"JANITOR"`
 }
 
 type ServerConfig struct {
@@ -29,7 +34,7 @@ type ServerConfig struct {
 }
 
 type DatabaseConfig struct {
-	DSN string `envconfig:"DATABASE_DSN" required:"true"`
+	DSN string `envconfig:"DSN" required:"true"`
 }
 
 type RedisConfig struct {
@@ -49,22 +54,38 @@ type S3Config struct {
 	Bucket    string `envconfig:"BUCKET"`
 }
 
-type K8sConfig struct {
-	VerifierImage       string `envconfig:"VERIFIER_IMAGE"`
-	VerifierWorkerImage string `envconfig:"VERIFIER_WORKER_IMAGE"`
-	TestImage           string `envconfig:"TEST_IMAGE"`
-	ImagePullSecret     string `envconfig:"IMAGE_PULL_SECRET"`
-	JobTimeoutMinutes   int    `envconfig:"JOB_TIMEOUT_MINUTES"`
+type K8sJobConfig struct {
+	JobTimeout          time.Duration `envconfig:"JOB_TIMEOUT"`
+	PollInterval        time.Duration `envconfig:"POLL_INTERVAL"`
+	TTLAfterFinished    int32         `envconfig:"JOB_TTL_SECONDS"`
+	VerifierImage       string        `envconfig:"VERIFIER_IMAGE"`
+	VerifierWorkerImage string        `envconfig:"VERIFIER_WORKER_IMAGE"`
+	TestImage           string        `envconfig:"TEST_IMAGE"`
+	ImagePullSecret     string        `envconfig:"IMAGE_PULL_SECRET"`
+	PostgresImage       string        `envconfig:"POSTGRES_IMAGE"`
+	RedisImage          string        `envconfig:"REDIS_IMAGE"`
+	MinioImage          string        `envconfig:"MINIO_IMAGE"`
+	EncryptionSecret    string        `envconfig:"ENCRYPTION_SECRET"`
+	JWTSecret           string        `envconfig:"JWT_SECRET"`
+	PluginEndpoint      string        `envconfig:"PLUGIN_ENDPOINT"`
+	HostAliases         string        `envconfig:"HOST_ALIASES"`
+	PluginAPIKey        string        `envconfig:"PLUGIN_API_KEY"`
+	TestTargetAddress   string        `envconfig:"TEST_TARGET_ADDRESS"`
+	VaultB64            string        `envconfig:"VAULT_B64"`
+	ServerVaultB64      string        `envconfig:"SERVER_VAULT_B64"`
+	IngressDomain       string        `envconfig:"INGRESS_DOMAIN"`
+	TLSSecretName       string        `envconfig:"TLS_SECRET_NAME"`
+	SystemNamespace     string        `envconfig:"SYSTEM_NAMESPACE"`
 }
 
 type JanitorConfig struct {
-	IntervalMinutes       int `envconfig:"JANITOR_INTERVAL_MINUTES"`
-	StaleThresholdMinutes int `envconfig:"JANITOR_STALE_THRESHOLD_MINUTES"`
+	Interval       time.Duration `envconfig:"INTERVAL"`
+	StaleThreshold time.Duration `envconfig:"STALE_THRESHOLD"`
 }
 
 func ReadAPIConfig() (*APIConfig, error) {
 	var cfg APIConfig
-	err := envconfig.Process("", &cfg)
+	err := envconfig.Process("PLUGIN_TESTS_API", &cfg)
 	if err != nil {
 		return nil, fmt.Errorf("failed to read API config: %w", err)
 	}
@@ -73,9 +94,12 @@ func ReadAPIConfig() (*APIConfig, error) {
 
 func ReadWorkerConfig() (*WorkerConfig, error) {
 	var cfg WorkerConfig
-	err := envconfig.Process("", &cfg)
+	err := envconfig.Process("PLUGIN_TESTS_WORKER", &cfg)
 	if err != nil {
 		return nil, fmt.Errorf("failed to read worker config: %w", err)
+	}
+	if cfg.KubeConfig == "" {
+		cfg.KubeConfig = os.Getenv("KUBECONFIG")
 	}
 	return &cfg, nil
 }

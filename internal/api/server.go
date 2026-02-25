@@ -11,26 +11,29 @@ import (
 	"github.com/labstack/echo/v4/middleware"
 	"github.com/sirupsen/logrus"
 
+	"github.com/vultisig/plugin-tests/config"
 	"github.com/vultisig/plugin-tests/internal/queue"
 	"github.com/vultisig/plugin-tests/internal/storage"
 )
 
 type Server struct {
-	host     string
-	port     int
-	db       storage.DatabaseStorage
-	producer *queue.Producer
-	logger   *logrus.Logger
-	echo     *echo.Echo
+	host       string
+	port       int
+	db         storage.DatabaseStorage
+	producer   *queue.Producer
+	logger     *logrus.Logger
+	echo       *echo.Echo
+	artifactS3 config.S3Config
 }
 
-func NewServer(host string, port int, db storage.DatabaseStorage, producer *queue.Producer, logger *logrus.Logger) *Server {
+func NewServer(cfg *config.APIConfig, db storage.DatabaseStorage, producer *queue.Producer, logger *logrus.Logger) *Server {
 	return &Server{
-		host:     host,
-		port:     port,
-		db:       db,
-		producer: producer,
-		logger:   logger,
+		host:       cfg.Server.Host,
+		port:       cfg.Server.Port,
+		db:         db,
+		producer:   producer,
+		logger:     logger,
+		artifactS3: cfg.ArtifactS3,
 	}
 }
 
@@ -62,7 +65,11 @@ func (s *Server) Start(ctx context.Context) error {
 	api := e.Group("/integration-tests")
 	api.POST("/run", s.handleCreateTestRun)
 	api.GET("/run/:id", s.handleGetTestRun)
+	api.GET("/run/:id/artifacts/:name", s.handleGetArtifact)
 	api.GET("/runs", s.handleListTestRuns)
+
+	e.GET("/results", s.handleResultsList)
+	e.GET("/results/:id", s.handleResultsDetail)
 
 	addr := fmt.Sprintf("%s:%d", s.host, s.port)
 	s.logger.Infof("API server listening on %s", addr)

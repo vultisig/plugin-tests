@@ -48,7 +48,7 @@ func main() {
 	producer := queue.NewProducer(client)
 	defer producer.Close()
 
-	server := api.NewServer(cfg.Server.Host, cfg.Server.Port, db, producer, logger)
+	server := api.NewServer(cfg, db, producer, logger)
 
 	err = server.Start(ctx)
 	if err != nil {
